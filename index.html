@@ -6,17 +6,21 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <h1>Nomoggle</h1>
   <div id="boggle-game">
+    <input type="file" id="wordListFileInput" accept=".txt" style="display: none;">
     <div class="board" id="board"></div>
     <input type="text" id="word-input" placeholder="Enter word">
-    <button onclick="checkWord()">Submit</button>
-    <div id="found-words">
-      <h3>Found Words:</h3>
-      <ul id="word-list"></ul>
-    </div>
+    <div class="timer" id="timer">02:00</div>
+  </div>
+
+  <button onclick="document.getElementById('wordListFileInput').click();">Load Word List</button>
+
+  <div id="found-words">
+    <h3>Found Words:</h3>
+    <ul id="word-list"></ul>
   </div>
 
   <script src="script.js"></script>
 </body>
 </html>
-

@@ -2,6 +2,10 @@ body {
   font-family: Arial, sans-serif;
 }
 
+h1 {
+    text-align: center;
+}
+
 #boggle-game {
   display: flex;
   flex-direction: column;
@@ -15,14 +19,21 @@ body {
 }
 
 .tile {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 50px;
+  display: inline-block;
+  width: 50px; /* Adjust the size as needed */
   height: 50px;
-  border: 1px solid #333;
-  font-size: 24px;
+  margin: 5px;
+  border-radius: 10px; /* Rounded corners */
+  text-align: center;
+  line-height: 50px; /* Vertically centers the text */
+  font-size: 24px; /* Larger letters */
+  color: white;
+  font-weight: bold;
+  /* background: linear-gradient(135deg, #f06, #a03); /* Gradient background */
+  background: linear-gradient(135deg, #ff8400, #f9f31e);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3); /* Adding a shadow for depth */
 }
+
 
 #word-input {
   margin-top: 10px;
@@ -30,9 +41,9 @@ body {
   font-size: 16px;
 }
 
-button {
-  margin-top: 10px;
-  padding: 5px 10px;
+.timer {
+  margin-top: 20px;
+  font-size: 18px;
 }
 
 #found-words {
