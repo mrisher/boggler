@@ -22,6 +22,7 @@ const DICE = [
 ];
 const BOARD_SIZE = 4;
 const TRIPLE_WORD_DURATION = 15;
+const SILVER_TILE_DURATION = 15;
 
 // Seedable random number generator
 const createRand = (seed) => {
@@ -62,23 +63,20 @@ const App = () => {
     const [timeLeft, setTimeLeft] = useState(getTime());
     const [gameStarted, setGameStarted] = useState(false);
     const [gameOver, setGameOver] = useState(false);
-    const [allPossibleWords, setAllPossibleWords] = useState(new Set());
+    const [allPossibleWords, setAllPossibleWords] = useState(new Map());
     const [activeTab, setActiveTab] = useState('found');
     const [selection, setSelection] = useState([]);
     const [isSelecting, setIsSelecting] = useState(false);
     const [lastFoundWord, setLastFoundWord] = useState(null);
     const [showAllWordsModal, setShowAllWordsModal] = useState(false);
     const [modalActiveTab, setModalActiveTab] = useState('found');
-    const [doubleWordIndex, setDoubleWordIndex] = useState(-1);
-    const [doubleLetterIndex, setDoubleLetterIndex] = useState(-1);
-    const [tripleWordIndex, setTripleWordIndex] = useState(-1);
-    const [tripleWordTimer, setTripleWordTimer] = useState(0);
+    const [bonusTiles, setBonusTiles] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isExploding, setIsExploding] = useState(false);
     const [tripleWordStartTime, setTripleWordStartTime] = useState(0);
     const [tripleWordHasAppeared, setTripleWordHasAppeared] = useState(false);
-    const [isCalculating, setIsCalculating] = useState(false);
-    const [silverTileIndex, setSilverTileIndex] = useState(-1);
-    const [silverTileUsed, setSilverTileUsed] = useState(false);
-    const [isExploding, setIsExploding] = useState(false);
+    const [silverTileStartTime, setSilverTileStartTime] = useState(0);
+    const [silverTileHasAppeared, setSilverTileHasAppeared] = useState(false);
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
@@ -92,30 +90,21 @@ const App = () => {
         const selectedLetters = shuffledDice.map(die => die.faces[Math.floor(rand() * 6)]);
         setBoard(selectedLetters);
 
-        let dw = -1, dl = -1, st = -1;
-        while (dw === dl || dw === st || dl === st) {
+        let dw = -1, dl = -1;
+        while (dw === dl) {
             dw = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
             dl = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
-            st = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
         }
-        setDoubleWordIndex(dw);
-        setDoubleLetterIndex(dl);
-        setSilverTileIndex(st);
-        setSilverTileUsed(false);
+        
+        setBonusTiles([
+            { index: dw, type: 'DW' },
+            { index: dl, type: 'DL' }
+        ]);
     }, [seed]);
 
     useEffect(() => {
         generateBoard();
     }, [generateBoard]);
-
-    useEffect(() => {
-        fetch('/words.txt')
-            .then(response => response.text())
-            .then(text => {
-                const words = new Set(text.split('\n').map(word => word.trim().toUpperCase()));
-                setWordSet(words);
-            });
-    }, []);
 
     const findAllPossibleWords = useCallback(() => {
         const found = new Map();
@@ -144,9 +133,44 @@ const App = () => {
             findWords([i], '');
         }
         setAllPossibleWords(found);
-        setIsCalculating(false);
     }, [board, wordSet]);
 
+    useEffect(() => {
+        fetch('/words.txt')
+            .then(response => response.text())
+            .then(text => {
+                const words = new Set(text.split('\n').map(word => word.trim().toUpperCase()));
+                setWordSet(words);
+            });
+    }, []);
+
+    useEffect(() => {
+        if (board.length > 0 && wordSet.size > 0) {
+            setIsLoading(true);
+            setTimeout(() => {
+                findAllPossibleWords();
+                setIsLoading(false);
+            }, 10);
+        }
+    }, [board, wordSet, findAllPossibleWords]);
+
+    const findValidBonusTileIndex = useCallback((rand, currentBonusTiles) => {
+        const occupiedIndices = currentBonusTiles.map(t => t.index);
+        
+        const allWordIndices = new Set();
+        for (const path of allPossibleWords.values()) {
+            for (const index of path) {
+                allWordIndices.add(index);
+            }
+        }
+
+        const candidateIndices = [...allWordIndices].filter(index => !occupiedIndices.includes(index));
+
+        if (candidateIndices.length > 0) {
+            return candidateIndices[Math.floor(rand() * candidateIndices.length)];
+        }
+        return -1;
+    }, [allPossibleWords]);
 
     useEffect(() => {
         if (!gameStarted || gameOver) {
@@ -154,31 +178,42 @@ const App = () => {
         }
 
         const timer = setInterval(() => {
-            setTimeLeft(prevTime => {
-                const newTime = prevTime - 1;
-                if (newTime === tripleWordStartTime && !tripleWordHasAppeared) {
-                    const rand = createRand(seed + 1);
-                    let tw = -1;
-                    do {
-                        tw = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
-                    } while (tw === doubleWordIndex || tw === doubleLetterIndex);
-                    console.log(`Triple Word tile appearing at index ${tw} for ${TRIPLE_WORD_DURATION} seconds.`);
-                    setTripleWordIndex(tw);
-                    setTripleWordTimer(TRIPLE_WORD_DURATION);
-                    setTripleWordHasAppeared(true);
-                }
-                return newTime;
-            });
+            const rand = createRand(seed + timeLeft);
 
-            if (tripleWordTimer > 0) {
-                setTripleWordTimer(prev => prev - 1);
-            } else if (tripleWordIndex !== -1) {
-                setTripleWordIndex(-1);
-            }
+            setTimeLeft(prevTime => prevTime - 1);
+
+            setBonusTiles(prev => {
+                let newBonusTiles = prev.map(tile => {
+                    if (tile.timer > 0) {
+                        return { ...tile, timer: tile.timer - 1 };
+                    }
+                    return tile;
+                }).filter(tile => tile.timer !== 0);
+
+                const now = getTime() - timeLeft;
+                
+                if (now === tripleWordStartTime && !tripleWordHasAppeared) {
+                    const twIndex = findValidBonusTileIndex(rand, newBonusTiles);
+                    if (twIndex !== -1) {
+                        newBonusTiles.push({ index: twIndex, type: 'TW', timer: TRIPLE_WORD_DURATION });
+                        setTripleWordHasAppeared(true);
+                    }
+                }
+
+                if (now === silverTileStartTime && !silverTileHasAppeared) {
+                    const stIndex = findValidBonusTileIndex(rand, newBonusTiles);
+                    if (stIndex !== -1) {
+                        newBonusTiles.push({ index: stIndex, type: 'ST', used: false, timer: SILVER_TILE_DURATION });
+                        setSilverTileHasAppeared(true);
+                    }
+                }
+                
+                return newBonusTiles;
+            });
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [gameStarted, gameOver, tripleWordStartTime, tripleWordHasAppeared, tripleWordTimer, tripleWordIndex, seed, doubleWordIndex, doubleLetterIndex]);
+    }, [gameStarted, gameOver, seed, timeLeft, tripleWordStartTime, tripleWordHasAppeared, silverTileStartTime, silverTileHasAppeared, findValidBonusTileIndex]);
 
 
     useEffect(() => {
@@ -186,15 +221,6 @@ const App = () => {
             setGameOver(true);
         }
     }, [timeLeft, gameStarted, gameOver]);
-
-    useEffect(() => {
-        if (gameOver) {
-            setIsCalculating(true);
-            setTimeout(() => {
-                findAllPossibleWords();
-            }, 10);
-        }
-    }, [gameOver, findAllPossibleWords]);
 
     useEffect(() => {
         if (gameStarted) {
@@ -222,12 +248,16 @@ const App = () => {
     }, [lastFoundWord]);
 
     const handleStartGame = () => {
+        if (isLoading) return;
         setGameStarted(true);
         const rand = createRand(seed + 1);
         const gameDuration = getTime();
         // TW appears in the first half of the game
         setTripleWordStartTime(Math.floor(rand() * (gameDuration / 2)) + (gameDuration / 2));
         setTripleWordHasAppeared(false);
+        // ST appears in the second half of the game
+        setSilverTileStartTime(Math.floor(rand() * (gameDuration / 2)));
+        setSilverTileHasAppeared(false);
     };
 
     const handleNewGame = () => {
@@ -294,19 +324,22 @@ const App = () => {
     const calculatePoints = (word, path) => {
         if (word.length <= 2) return 0;
         let points = word.length - 3;
-        if (path && path.includes(doubleLetterIndex)) {
-            points += 1;
+        let multiplier = 1;
+
+        for (const tile of bonusTiles) {
+            if (path.includes(tile.index)) {
+                if (tile.type === 'DL') {
+                    points += 1;
+                } else if (tile.type === 'DW') {
+                    multiplier *= 2;
+                } else if (tile.type === 'TW') {
+                    multiplier *= 3;
+                } else if (tile.type === 'ST' && !tile.used) {
+                    multiplier *= 10;
+                }
+            }
         }
-        if (path && path.includes(doubleWordIndex)) {
-            points *= 2;
-        }
-        if (path && path.includes(tripleWordIndex)) {
-            points *= 3;
-        }
-        if (path && path.includes(silverTileIndex) && !silverTileUsed) {
-            points *= 10;
-        }
-        return points;
+        return points * multiplier;
     };
 
     const checkWord = (word) => {
@@ -321,9 +354,11 @@ const App = () => {
                 const points = calculatePoints(upperCaseWord, path);
                 setFoundWords(prev => [...prev, { word: upperCaseWord, points }]);
                 setLastFoundWord({ word: upperCaseWord, points });
-                if (path.includes(silverTileIndex) && !silverTileUsed) {
-                    setSilverTileUsed(true);
+
+                const silverTile = bonusTiles.find(t => t.type === 'ST' && !t.used);
+                if (silverTile && path.includes(silverTile.index)) {
                     setIsExploding(true);
+                    setBonusTiles(prev => prev.map(t => t.index === silverTile.index ? { ...t, used: true } : t));
                 }
             }
         }
@@ -443,25 +478,37 @@ const App = () => {
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
                 >
-                    <div className={`board ${!gameStarted ? 'blurred' : ''}`}>
+                    <div className={`board ${!gameStarted || isLoading ? 'blurred' : ''}`}>
                         {board.map((letter, index) => {
-                            const isDoubleWord = index === doubleWordIndex;
-                            const isDoubleLetter = index === doubleLetterIndex;
-                            const isTripleWord = index === tripleWordIndex;
-                            const isSilverTile = index === silverTileIndex && !silverTileUsed;
-                            const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${isDoubleWord ? 'double-word' : ''} ${isDoubleLetter ? 'double-letter' : ''} ${isTripleWord ? 'triple-word' : ''} ${isSilverTile ? 'silver-tile' : ''}`;
+                            const bonusTile = bonusTiles.find(t => t.index === index);
+                            let tileTypeClass = '';
+                            if (bonusTile) {
+                                if (bonusTile.type === 'ST' && bonusTile.used) {
+                                    tileTypeClass = '';
+                                } else {
+                                    tileTypeClass = `${bonusTile.type.toLowerCase()}-tile`;
+                                }
+                            }
+                            const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${tileTypeClass} ${isLoading ? 'shaking' : ''}`;
+                            
+                            let chip = null;
+                            if (bonusTile) {
+                                if (bonusTile.type === 'DW') chip = <div className="bonus-chip double-word-chip">DW</div>;
+                                else if (bonusTile.type === 'DL') chip = <div className="bonus-chip double-letter-chip">DL</div>;
+                                else if (bonusTile.type === 'TW') chip = <div className="bonus-chip triple-word-chip">TW</div>;
+                                else if (bonusTile.type === 'ST' && !bonusTile.used) chip = <div className="bonus-chip silver-tile-chip">10x</div>;
+                            }
+
                             return (
                                 <div
                                     key={index}
                                     data-index={index}
                                     className={tileClasses}
+                                    style={{ animationDelay: `${Math.random() * 0.5}s` }}
                                 >
                                     <div className="tile-content">
-                                        {isExploding && index === silverTileIndex && <ConfettiExplosion onComplete={() => setIsExploding(false)} colors={['#C0C0C0', '#D3D3D3', '#E0E0E0']} />}
-                                        {isDoubleWord && <div className="bonus-chip double-word-chip">DW</div>}
-                                        {isDoubleLetter && <div className="bonus-chip double-letter-chip">DL</div>}
-                                        {isTripleWord && <div className="bonus-chip triple-word-chip">TW</div>}
-                                        {isSilverTile && <div className="bonus-chip silver-tile-chip">10x</div>}
+                                        {isExploding && bonusTile && bonusTile.type === 'ST' && <ConfettiExplosion onComplete={() => setIsExploding(false)} colors={['#C0C0C0', '#D3D3D3', '#E0E0E0']} />}
+                                        {chip}
                                         {letter}
                                         <div
                                             className="drag-target"
@@ -475,8 +522,8 @@ const App = () => {
                         })}
                     </div>
                     {!gameStarted && (
-                        <div className="start-scrim" onClick={handleStartGame}>
-                            <h2>Click to Start</h2>
+                        <div className={`start-scrim ${isLoading ? 'disabled' : ''}`} onClick={handleStartGame}>
+                            <h2>{isLoading ? 'Loading...' : 'Click to Start'}</h2>
                         </div>
                     )}
                 </div>
@@ -494,15 +541,9 @@ const App = () => {
                 <div className="mobile-button-container">
                     {gameOver && (
                         <>
-                            {isCalculating ? (
-                                <div className="spinner-container">
-                                    <div className="spinner"></div>
-                                </div>
-                            ) : (
-                                <button className="view-words-button" onClick={() => setShowAllWordsModal(true)}>
-                                    All Words ({allPossibleWords.size})
-                                </button>
-                            )}
+                            <button className="view-words-button" onClick={() => setShowAllWordsModal(true)}>
+                                All Words ({allPossibleWords.size})
+                            </button>
                             <button className="share-button" onClick={handleShare}>Share Score</button>
                         </>
                     )}

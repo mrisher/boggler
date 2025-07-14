@@ -46,7 +46,11 @@ h1 {
 }
 
 .board.blurred {
-  filter: blur(5px);
+  filter: blur(13px);
+}
+
+.tile.shaking {
+  animation: shake 0.5s infinite;
 }
 
 .start-scrim {
@@ -60,6 +64,14 @@ h1 {
   align-items: center;
   cursor: pointer;
   z-index: 10;
+}
+
+.start-scrim.disabled {
+  cursor: wait;
+}
+
+.start-scrim.disabled h2 {
+  background-color: #888;
 }
 
 .start-scrim h2 {
@@ -151,29 +163,29 @@ h1 {
     background: linear-gradient(135deg, #1e90ff, #87cefa);
 }
 
-.tile.double-letter .tile-content {
+.tile.dl-tile .tile-content {
     background: linear-gradient(135deg, #87ceeb, #add8e6);
 }
 
-.tile.double-word .tile-content {
+.tile.dw-tile .tile-content {
     background: linear-gradient(135deg, #ff69b4, #ffb6c1);
 }
 
-.tile.triple-word {
+.tile.tw-tile {
     animation: shake 0.5s infinite;
 }
 
-.tile.triple-word .tile-content {
+.tile.tw-tile .tile-content {
     background: linear-gradient(135deg, #28a745, #90ee90);
 }
 
-.tile.silver-tile .tile-content {
+.tile.st-tile .tile-content {
     background: linear-gradient(135deg, #c0c0c0, #f0f0f0);
     position: relative;
     overflow: hidden;
 }
 
-.tile.silver-tile .tile-content::after {
+.tile.st-tile .tile-content::after {
     content: '';
     position: absolute;
     top: -50%;
@@ -200,10 +212,10 @@ h1 {
     }
 }
 
-.tile.selected.double-letter .tile-content,
-.tile.selected.double-word .tile-content,
-.tile.selected.triple-word .tile-content,
-.tile.selected.silver-tile .tile-content {
+.tile.selected.dl-tile .tile-content,
+.tile.selected.dw-tile .tile-content,
+.tile.selected.tw-tile .tile-content,
+.tile.selected.st-tile .tile-content {
     border-color: #1e90ff;
 }
 
