@@ -55,6 +55,8 @@ const App = () => {
     const [activeTab, setActiveTab] = useState('found');
     const [selection, setSelection] = useState([]);
     const [isSelecting, setIsSelecting] = useState(false);
+    const [lastFoundWord, setLastFoundWord] = useState(null);
+    const [showAllWordsModal, setShowAllWordsModal] = useState(false);
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
@@ -136,8 +138,22 @@ const App = () => {
         }
     }, [foundWords, activeTab]);
 
+    useEffect(() => {
+        if (lastFoundWord) {
+            const timer = setTimeout(() => {
+                setLastFoundWord(null);
+            }, 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [lastFoundWord]);
+
     const handleStartGame = () => {
         setGameStarted(true);
+    };
+
+    const handleNewGame = () => {
+        const newSeed = Math.floor(Math.random() * 9000) + 1000;
+        window.location.search = `seed=${newSeed}`;
     };
 
     const handleTabClick = (tab) => {
@@ -210,6 +226,7 @@ const App = () => {
         ) {
              const points = calculatePoints(upperCaseWord);
              setFoundWords(prev => [...prev, { word: upperCaseWord, points }]);
+             setLastFoundWord(upperCaseWord);
         }
     };
 
@@ -296,6 +313,7 @@ const App = () => {
             <div className="game-area">
                 <h1>Noggle #{seed}</h1>
                 <h2 className="timer">{formatTime(timeLeft)}</h2>
+                {lastFoundWord && <div className="word-toast">{lastFoundWord}</div>}
                 <div
                     className="board-container"
                     onMouseUp={handleMouseUp}
@@ -331,6 +349,14 @@ const App = () => {
                     disabled={!gameStarted || gameOver}
                     placeholder={!gameStarted ? "Click start to play" : (gameOver ? "Game Over" : "Enter word...")}
                 />
+                <div className="mobile-button-container">
+                    {gameOver && (
+                        <button className="view-words-button" onClick={() => setShowAllWordsModal(true)}>
+                            All Words ({allPossibleWords.size})
+                        </button>
+                    )}
+                    <button className="new-game-button" onClick={handleNewGame}>New Game</button>
+                </div>
             </div>
             <div className="sidebar">
                 <div className="tab-container">
@@ -354,6 +380,25 @@ const App = () => {
                     </ul>
                 </div>
             </div>
+            {showAllWordsModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>All Words ({allPossibleWords.size})</h2>
+                            <button className="close-button" onClick={() => setShowAllWordsModal(false)}>&times;</button>
+                        </div>
+                        <div className="word-list-container">
+                            <ul className="word-list">
+                                {sortedAllWords.map(word => (
+                                    <li key={word} className={foundWordsSet.has(word) ? 'found-in-all' : 'missed'}>
+                                        {word} {formatPoints(calculatePoints(word))}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
