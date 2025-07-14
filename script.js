@@ -1,42 +1,22 @@
-const ALPHABET_DISTRIBUTION = [
-    "A",
-    "A",
-    "A",
-    "A",
-    "C",
-    "D",
-    "E",
-    "E",
-    "E",
-    "I",
-    "L",
-    "O",
-    "R",
-    "S",
-    "T",
-    "R",
-    "S",
-    "T",
-    "U",
-    "B",
-    "F",
-    "G",
-    "H",
-    "K",
-    "M",
-    "N",
-    "P",
-    "Q",
-    "R",
-    "S",
-    "T",
-    "U",
-    "V",
-    "W",
-    "X",
-    "Y",
-    "Z",
+const DICE = [
+    { faces: ["A", "A", "C", "I", "O", "T"] },
+    { faces: ["A", "B", "I", "L", "T", "Y"] },
+    { faces: ["A", "B", "J", "M", "O", "Qu"] },
+    { faces: ["A", "C", "D", "E", "M", "P"] },
+    { faces: ["A", "C", "E", "L", "R", "S"] },
+    { faces: ["A", "D", "E", "N", "V", "Z"] },
+    { faces: ["A", "H", "M", "O", "R", "S"] },
+    { faces: ["B", "I", "F", "O", "R", "X"] },
+    { faces: ["D", "E", "N", "O", "S", "W"] },
+    { faces: ["D", "K", "N", "O", "T", "U"] },
+    { faces: ["E", "E", "F", "H", "I", "Y"] },
+    { faces: ["E", "G", "K", "L", "U", "Y"] },
+    { faces: ["E", "G", "I", "N", "T", "V"] },
+    { faces: ["E", "H", "I", "N", "P", "S"] },
+    { faces: ["E", "L", "P", "S", "T", "U"] },
+    { faces: ["G", "I", "L", "R", "U", "W"] },
 ];
+
 const BOARD_SIZE = 4;
 
 function shuffleArray(array) {
@@ -48,13 +28,19 @@ function shuffleArray(array) {
 
 function generateBoard() {
     const board = [];
-    let shuffledAlphabet = ALPHABET_DISTRIBUTION.slice(); // Copy the distribution array
+    let selectedLetters = [];
 
-    shuffleArray(shuffledAlphabet);
+    // Pick one letter from each die
+    for (let die of DICE) {
+        const randomFaceIndex = Math.floor(Math.random() * 6);
+        selectedLetters.push(die.faces[randomFaceIndex]);
+    }
+
+    // Shuffle the selected letters
+    shuffleArray(selectedLetters);
 
     for (let i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
-        // Remove one letter at a time from the shuffled alphabet
-        board.push(shuffledAlphabet[i]); // Directly access shuffled element
+        board.push(selectedLetters[i]);
     }
 
     return board;
