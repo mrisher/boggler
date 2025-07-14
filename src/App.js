@@ -69,6 +69,7 @@ const App = () => {
     const [modalActiveTab, setModalActiveTab] = useState('found');
     const [doubleWordIndex, setDoubleWordIndex] = useState(-1);
     const [doubleLetterIndex, setDoubleLetterIndex] = useState(-1);
+    const [isCalculating, setIsCalculating] = useState(false);
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
@@ -131,6 +132,7 @@ const App = () => {
             findWords([i], '');
         }
         setAllPossibleWords(found);
+        setIsCalculating(false);
     }, [board, wordSet]);
 
 
@@ -140,9 +142,17 @@ const App = () => {
             return () => clearTimeout(timer);
         } else if (timeLeft === 0 && gameStarted) {
             setGameOver(true);
-            findAllPossibleWords();
         }
-    }, [timeLeft, gameStarted, findAllPossibleWords]);
+    }, [timeLeft, gameStarted]);
+
+    useEffect(() => {
+        if (gameOver) {
+            setIsCalculating(true);
+            setTimeout(() => {
+                findAllPossibleWords();
+            }, 10);
+        }
+    }, [gameOver, findAllPossibleWords]);
 
     useEffect(() => {
         if (gameStarted) {
@@ -414,9 +424,15 @@ const App = () => {
                 <div className="mobile-button-container">
                     {gameOver && (
                         <>
-                            <button className="view-words-button" onClick={() => setShowAllWordsModal(true)}>
-                                All Words ({allPossibleWords.size})
-                            </button>
+                            {isCalculating ? (
+                                <div className="spinner-container">
+                                    <div className="spinner"></div>
+                                </div>
+                            ) : (
+                                <button className="view-words-button" onClick={() => setShowAllWordsModal(true)}>
+                                    All Words ({allPossibleWords.size})
+                                </button>
+                            )}
                             <button className="share-button" onClick={handleShare}>Share Score</button>
                         </>
                     )}

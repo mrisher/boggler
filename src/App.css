@@ -55,7 +55,6 @@ h1 {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -119,6 +118,30 @@ h1 {
 .tile.selected.double-letter .tile-content,
 .tile.selected.double-word .tile-content {
     border-color: #1e90ff;
+}
+
+.spinner-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+    padding: 15px;
+    background-color: #555;
+    border-radius: 8px;
+}
+
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid #fff;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .word-input {
@@ -320,6 +343,11 @@ h1 {
 
   .new-game-button {
     background-color: #1e90ff;
+  }
+
+  .new-game-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
   }
   
   .share-button {
