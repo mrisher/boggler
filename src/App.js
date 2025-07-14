@@ -20,6 +20,7 @@ const DICE = [
     { faces: ["G", "I", "L", "R", "U", "W"] }
 ];
 const BOARD_SIZE = 4;
+const TRIPLE_WORD_DURATION = 15;
 
 // Seedable random number generator
 const createRand = (seed) => {
@@ -69,6 +70,10 @@ const App = () => {
     const [modalActiveTab, setModalActiveTab] = useState('found');
     const [doubleWordIndex, setDoubleWordIndex] = useState(-1);
     const [doubleLetterIndex, setDoubleLetterIndex] = useState(-1);
+    const [tripleWordIndex, setTripleWordIndex] = useState(-1);
+    const [tripleWordTimer, setTripleWordTimer] = useState(0);
+    const [tripleWordStartTime, setTripleWordStartTime] = useState(0);
+    const [tripleWordHasAppeared, setTripleWordHasAppeared] = useState(false);
     const [isCalculating, setIsCalculating] = useState(false);
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
@@ -137,13 +142,43 @@ const App = () => {
 
 
     useEffect(() => {
-        if (gameStarted && timeLeft > 0) {
-            const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-            return () => clearTimeout(timer);
-        } else if (timeLeft === 0 && gameStarted) {
+        if (!gameStarted || gameOver) {
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setTimeLeft(prevTime => {
+                const newTime = prevTime - 1;
+                if (newTime === tripleWordStartTime && !tripleWordHasAppeared) {
+                    const rand = createRand(seed + 1);
+                    let tw = -1;
+                    do {
+                        tw = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
+                    } while (tw === doubleWordIndex || tw === doubleLetterIndex);
+                    console.log(`Triple Word tile appearing at index ${tw} for ${TRIPLE_WORD_DURATION} seconds.`);
+                    setTripleWordIndex(tw);
+                    setTripleWordTimer(TRIPLE_WORD_DURATION);
+                    setTripleWordHasAppeared(true);
+                }
+                return newTime;
+            });
+
+            if (tripleWordTimer > 0) {
+                setTripleWordTimer(prev => prev - 1);
+            } else if (tripleWordIndex !== -1) {
+                setTripleWordIndex(-1);
+            }
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [gameStarted, gameOver, tripleWordStartTime, tripleWordHasAppeared, tripleWordTimer, tripleWordIndex, seed, doubleWordIndex, doubleLetterIndex]);
+
+
+    useEffect(() => {
+        if (timeLeft === 0 && gameStarted && !gameOver) {
             setGameOver(true);
         }
-    }, [timeLeft, gameStarted]);
+    }, [timeLeft, gameStarted, gameOver]);
 
     useEffect(() => {
         if (gameOver) {
@@ -181,6 +216,11 @@ const App = () => {
 
     const handleStartGame = () => {
         setGameStarted(true);
+        const rand = createRand(seed + 1);
+        const gameDuration = getTime();
+        // TW appears in the first half of the game
+        setTripleWordStartTime(Math.floor(rand() * (gameDuration / 2)) + (gameDuration / 2));
+        setTripleWordHasAppeared(false);
     };
 
     const handleNewGame = () => {
@@ -252,6 +292,9 @@ const App = () => {
         }
         if (path && path.includes(doubleWordIndex)) {
             points *= 2;
+        }
+        if (path && path.includes(tripleWordIndex)) {
+            points *= 3;
         }
         return points;
     };
@@ -390,7 +433,8 @@ const App = () => {
                         {board.map((letter, index) => {
                             const isDoubleWord = index === doubleWordIndex;
                             const isDoubleLetter = index === doubleLetterIndex;
-                            const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${isDoubleWord ? 'double-word' : ''} ${isDoubleLetter ? 'double-letter' : ''}`;
+                            const isTripleWord = index === tripleWordIndex;
+                            const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${isDoubleWord ? 'double-word' : ''} ${isDoubleLetter ? 'double-letter' : ''} ${isTripleWord ? 'triple-word' : ''}`;
                             return (
                                 <div
                                     key={index}
@@ -400,6 +444,7 @@ const App = () => {
                                     <div className="tile-content">
                                         {isDoubleWord && <div className="bonus-chip double-word-chip">DW</div>}
                                         {isDoubleLetter && <div className="bonus-chip double-letter-chip">DL</div>}
+                                        {isTripleWord && <div className="bonus-chip triple-word-chip">TW</div>}
                                         {letter}
                                         <div
                                             className="drag-target"
@@ -428,6 +473,7 @@ const App = () => {
                     disabled={!gameStarted || gameOver}
                     placeholder={!gameStarted ? "Click start to play" : (gameOver ? "Game Over" : "Enter word...")}
                 />
+
                 <div className="mobile-button-container">
                     {gameOver && (
                         <>
