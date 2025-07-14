@@ -41,6 +41,15 @@ const getSeed = () => {
     return seed;
 };
 
+const getTime = () => {
+    const params = new URLSearchParams(window.location.search);
+    let time = parseInt(params.get('time'), 10);
+    if (isNaN(time) || time <= 0) {
+        return 120;
+    }
+    return time;
+};
+
 
 const App = () => {
     const [seed, setSeed] = useState(getSeed());
@@ -48,7 +57,7 @@ const App = () => {
     const [wordSet, setWordSet] = useState(new Set());
     const [foundWords, setFoundWords] = useState([]);
     const [inputValue, setInputValue] = useState('');
-    const [timeLeft, setTimeLeft] = useState(120);
+    const [timeLeft, setTimeLeft] = useState(getTime());
     const [gameStarted, setGameStarted] = useState(false);
     const [gameOver, setGameOver] = useState(false);
     const [allPossibleWords, setAllPossibleWords] = useState(new Set());
@@ -404,9 +413,12 @@ const App = () => {
                 />
                 <div className="mobile-button-container">
                     {gameOver && (
-                        <button className="view-words-button" onClick={() => setShowAllWordsModal(true)}>
-                            All Words ({allPossibleWords.size})
-                        </button>
+                        <>
+                            <button className="view-words-button" onClick={() => setShowAllWordsModal(true)}>
+                                All Words ({allPossibleWords.size})
+                            </button>
+                            <button className="share-button" onClick={handleShare}>Share Score</button>
+                        </>
                     )}
                     <button className="new-game-button" onClick={handleNewGame}>New Game</button>
                 </div>
@@ -432,7 +444,7 @@ const App = () => {
                         ))}
                     </ul>
                 </div>
-                {activeTab === 'found' && (
+                {activeTab === 'found' && !gameOver && (
                     <button className="share-button" onClick={handleShare}>Share Score</button>
                 )}
             </div>

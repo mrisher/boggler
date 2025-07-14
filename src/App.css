@@ -121,19 +121,6 @@ h1 {
     border-color: #1e90ff;
 }
 
-.share-button {
-    display: block;
-    width: 100%;
-    padding: 15px;
-    font-size: 18px;
-    color: white;
-    background-color: #1e90ff;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-top: 10px;
-}
-
 .word-input {
   padding: 10px;
   font-size: 16px;
@@ -319,7 +306,8 @@ h1 {
   }
 
   .new-game-button,
-  .view-words-button {
+  .view-words-button,
+  .share-button {
     display: block;
     flex: 1;
     padding: 15px;
@@ -332,6 +320,10 @@ h1 {
 
   .new-game-button {
     background-color: #1e90ff;
+  }
+  
+  .share-button {
+    background-color: #28a745;
   }
 
   .view-words-button {
