@@ -121,7 +121,18 @@ h1 {
     border-color: #1e90ff;
 }
 
-
+.share-button {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    color: white;
+    background-color: #1e90ff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+}
 
 .word-input {
   padding: 10px;

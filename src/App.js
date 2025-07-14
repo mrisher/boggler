@@ -324,6 +324,17 @@ const App = () => {
         handleMouseUp();
     };
 
+    const handleShare = () => {
+        if (navigator.share) {
+            const text = `I got ${totalScore} points on Noggle #${seed}. https://noggle.complicity.co?seed=${seed}`;
+            navigator.share({
+                title: 'Noggle Score',
+                text: text,
+            })
+            .catch(error => console.log('Error sharing', error));
+        }
+    };
+
     const formatTime = (seconds) => {
         const minutes = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -421,6 +432,9 @@ const App = () => {
                         ))}
                     </ul>
                 </div>
+                {activeTab === 'found' && (
+                    <button className="share-button" onClick={handleShare}>Share Score</button>
+                )}
             </div>
             {showAllWordsModal && (
                 <div className="modal-overlay">
