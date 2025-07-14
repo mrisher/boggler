@@ -57,6 +57,7 @@ const App = () => {
     const [isSelecting, setIsSelecting] = useState(false);
     const [lastFoundWord, setLastFoundWord] = useState(null);
     const [showAllWordsModal, setShowAllWordsModal] = useState(false);
+    const [modalActiveTab, setModalActiveTab] = useState('found');
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
@@ -269,8 +270,14 @@ const App = () => {
     };
 
     const handleTouchStart = (e) => {
-        const index = parseInt(e.currentTarget.dataset.index, 10);
-        handleMouseDown(index);
+        const target = e.target;
+        if (target.classList.contains('tile-content')) {
+            const parentTile = target.closest('.tile');
+            if (parentTile) {
+                const index = parseInt(parentTile.dataset.index, 10);
+                handleMouseDown(index);
+            }
+        }
     };
 
     const handleTouchMove = (e) => {
@@ -278,10 +285,13 @@ const App = () => {
         e.preventDefault();
         const touch = e.touches[0];
         const element = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (element && element.classList.contains('tile')) {
-            const index = parseInt(element.dataset.index, 10);
-            if (selection.length > 0 && index !== selection[selection.length - 1]) {
-                handleMouseEnter(index);
+        if (element && element.classList.contains('tile-content')) {
+            const parentTile = element.closest('.tile');
+            if (parentTile) {
+                const index = parseInt(parentTile.dataset.index, 10);
+                if (selection.length > 0 && index !== selection[selection.length - 1]) {
+                    handleMouseEnter(index);
+                }
             }
         }
     };
@@ -307,6 +317,7 @@ const App = () => {
 
     const foundWordsSet = new Set(foundWords.map(item => item.word));
     const sortedAllWords = [...allPossibleWords].sort((a, b) => calculatePoints(b) - calculatePoints(a));
+    const totalScore = foundWords.reduce((sum, { points }) => sum + points, 0);
 
     return (
         <div className="App" onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -329,7 +340,7 @@ const App = () => {
                                 onMouseEnter={() => handleMouseEnter(index)}
                                 onTouchStart={handleTouchStart}
                             >
-                                {letter}
+                                <div className="tile-content">{letter}</div>
                             </div>
                         ))}
                     </div>
@@ -384,12 +395,28 @@ const App = () => {
                 <div className="modal-overlay">
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>All Words ({allPossibleWords.size})</h2>
+                            <h2>{modalActiveTab === 'found' ? `You found ${foundWords.length} words` : `All Words (${allPossibleWords.size})`}</h2>
                             <button className="close-button" onClick={() => setShowAllWordsModal(false)}>&times;</button>
                         </div>
+                        <div className="tab-container">
+                            <button className={`tab ${modalActiveTab === 'found' ? 'active' : ''}`} onClick={() => setModalActiveTab('found')}>
+                                Found Words ({foundWords.length})
+                            </button>
+                            <button className={`tab ${modalActiveTab === 'all' ? 'active' : ''}`} onClick={() => setModalActiveTab('all')}>
+                                All Words ({allPossibleWords.size})
+                            </button>
+                        </div>
+                        {modalActiveTab === 'found' && (
+                            <div className="total-score">
+                                Total Score: {totalScore}
+                            </div>
+                        )}
                         <div className="word-list-container">
                             <ul className="word-list">
-                                {sortedAllWords.map(word => (
+                                {modalActiveTab === 'found' && foundWords.map(({ word, points }) => (
+                                    <li key={word}>{word} {formatPoints(points)}</li>
+                                ))}
+                                {modalActiveTab === 'all' && sortedAllWords.map(word => (
                                     <li key={word} className={foundWordsSet.has(word) ? 'found-in-all' : 'missed'}>
                                         {word} {formatPoints(calculatePoints(word))}
                                     </li>
