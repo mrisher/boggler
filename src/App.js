@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ConfettiExplosion from 'react-confetti-explosion';
 import './App.css';
 
 const DICE = [
@@ -75,6 +76,9 @@ const App = () => {
     const [tripleWordStartTime, setTripleWordStartTime] = useState(0);
     const [tripleWordHasAppeared, setTripleWordHasAppeared] = useState(false);
     const [isCalculating, setIsCalculating] = useState(false);
+    const [silverTileIndex, setSilverTileIndex] = useState(-1);
+    const [silverTileUsed, setSilverTileUsed] = useState(false);
+    const [isExploding, setIsExploding] = useState(false);
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
@@ -88,13 +92,16 @@ const App = () => {
         const selectedLetters = shuffledDice.map(die => die.faces[Math.floor(rand() * 6)]);
         setBoard(selectedLetters);
 
-        let dw = -1, dl = -1;
-        while (dw === dl) {
+        let dw = -1, dl = -1, st = -1;
+        while (dw === dl || dw === st || dl === st) {
             dw = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
             dl = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
+            st = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
         }
         setDoubleWordIndex(dw);
         setDoubleLetterIndex(dl);
+        setSilverTileIndex(st);
+        setSilverTileUsed(false);
     }, [seed]);
 
     useEffect(() => {
@@ -296,6 +303,9 @@ const App = () => {
         if (path && path.includes(tripleWordIndex)) {
             points *= 3;
         }
+        if (path && path.includes(silverTileIndex) && !silverTileUsed) {
+            points *= 10;
+        }
         return points;
     };
 
@@ -311,6 +321,10 @@ const App = () => {
                 const points = calculatePoints(upperCaseWord, path);
                 setFoundWords(prev => [...prev, { word: upperCaseWord, points }]);
                 setLastFoundWord({ word: upperCaseWord, points });
+                if (path.includes(silverTileIndex) && !silverTileUsed) {
+                    setSilverTileUsed(true);
+                    setIsExploding(true);
+                }
             }
         }
     };
@@ -434,7 +448,8 @@ const App = () => {
                             const isDoubleWord = index === doubleWordIndex;
                             const isDoubleLetter = index === doubleLetterIndex;
                             const isTripleWord = index === tripleWordIndex;
-                            const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${isDoubleWord ? 'double-word' : ''} ${isDoubleLetter ? 'double-letter' : ''} ${isTripleWord ? 'triple-word' : ''}`;
+                            const isSilverTile = index === silverTileIndex && !silverTileUsed;
+                            const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${isDoubleWord ? 'double-word' : ''} ${isDoubleLetter ? 'double-letter' : ''} ${isTripleWord ? 'triple-word' : ''} ${isSilverTile ? 'silver-tile' : ''}`;
                             return (
                                 <div
                                     key={index}
@@ -442,9 +457,11 @@ const App = () => {
                                     className={tileClasses}
                                 >
                                     <div className="tile-content">
+                                        {isExploding && index === silverTileIndex && <ConfettiExplosion onComplete={() => setIsExploding(false)} colors={['#C0C0C0', '#D3D3D3', '#E0E0E0']} />}
                                         {isDoubleWord && <div className="bonus-chip double-word-chip">DW</div>}
                                         {isDoubleLetter && <div className="bonus-chip double-letter-chip">DL</div>}
                                         {isTripleWord && <div className="bonus-chip triple-word-chip">TW</div>}
+                                        {isSilverTile && <div className="bonus-chip silver-tile-chip">10x</div>}
                                         {letter}
                                         <div
                                             className="drag-target"
