@@ -44,6 +44,8 @@ const App = () => {
     const [gameOver, setGameOver] = useState(false);
     const [allPossibleWords, setAllPossibleWords] = useState(new Set());
     const [activeTab, setActiveTab] = useState('found');
+    const [selection, setSelection] = useState([]);
+    const [isSelecting, setIsSelecting] = useState(false);
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
@@ -198,6 +200,55 @@ const App = () => {
         }
     };
 
+    const handleMouseDown = (index) => {
+        if (!gameStarted || gameOver) return;
+        setIsSelecting(true);
+        setSelection([index]);
+    };
+
+    const handleMouseEnter = (index) => {
+        if (!isSelecting) return;
+
+        const lastSelected = selection[selection.length - 1];
+        const neighbors = getNeighbors(lastSelected);
+
+        if (neighbors.includes(index) && !selection.includes(index)) {
+            setSelection([...selection, index]);
+        }
+    };
+
+    const handleMouseUp = () => {
+        if (!isSelecting) return;
+
+        const word = selection.map(index => board[index]).join('');
+        checkWord(word);
+
+        setIsSelecting(false);
+        setSelection([]);
+    };
+
+    const handleTouchStart = (e) => {
+        e.preventDefault();
+        const index = parseInt(e.currentTarget.dataset.index, 10);
+        handleMouseDown(index);
+    };
+
+    const handleTouchMove = (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const element = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (element && element.classList.contains('tile')) {
+            const index = parseInt(element.dataset.index, 10);
+            if (selection.length > 0 && index !== selection[selection.length - 1]) {
+                handleMouseEnter(index);
+            }
+        }
+    };
+
+    const handleTouchEnd = () => {
+        handleMouseUp();
+    };
+
     const formatTime = (seconds) => {
         const minutes = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -217,11 +268,26 @@ const App = () => {
     return (
         <div className="App">
             <div className="game-area">
-                <h1>Boggle</h1>
-                <div className="board-container">
+                <h1>Noggle</h1>
+                <div
+                    className="board-container"
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchEnd={handleTouchEnd}
+                >
                     <div className={`board ${!gameStarted ? 'blurred' : ''}`}>
                         {board.map((letter, index) => (
-                            <div key={index} className="tile">{letter}</div>
+                            <div
+                                key={index}
+                                data-index={index}
+                                className={`tile ${selection.includes(index) ? 'selected' : ''}`}
+                                onMouseDown={() => handleMouseDown(index)}
+                                onMouseEnter={() => handleMouseEnter(index)}
+                                onTouchStart={handleTouchStart}
+                                onTouchMove={handleTouchMove}
+                            >
+                                {letter}
+                            </div>
                         ))}
                     </div>
                     {!gameStarted && (
