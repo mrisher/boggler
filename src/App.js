@@ -77,8 +77,13 @@ const App = () => {
     const [tripleWordHasAppeared, setTripleWordHasAppeared] = useState(false);
     const [silverTileStartTime, setSilverTileStartTime] = useState(0);
     const [silverTileHasAppeared, setSilverTileHasAppeared] = useState(false);
+    const [timedTileHistory, setTimedTileHistory] = useState(new Set());
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
+    const foundWordsRef = useRef(foundWords);
+    useEffect(() => {
+        foundWordsRef.current = foundWords;
+    }, [foundWords]);
 
     const generateBoard = useCallback(() => {
         const rand = createRand(seed);
@@ -100,6 +105,7 @@ const App = () => {
             { index: dw, type: 'DW' },
             { index: dl, type: 'DL' }
         ]);
+        setTimedTileHistory(new Set());
     }, [seed]);
 
     useEffect(() => {
@@ -154,17 +160,24 @@ const App = () => {
         }
     }, [board, wordSet, findAllPossibleWords]);
 
-    const findValidBonusTileIndex = useCallback((rand, currentBonusTiles) => {
-        const occupiedIndices = currentBonusTiles.map(t => t.index);
+    const findValidBonusTileIndex = useCallback((rand, occupiedIndices, history) => {
+        const foundWordsSet = new Set(foundWordsRef.current.map(item => item.word));
         
-        const allWordIndices = new Set();
-        for (const path of allPossibleWords.values()) {
-            for (const index of path) {
-                allWordIndices.add(index);
+        const unfoundWordPaths = [];
+        for (const [word, path] of allPossibleWords.entries()) {
+            if (!foundWordsSet.has(word)) {
+                unfoundWordPaths.push(path);
             }
         }
 
-        const candidateIndices = [...allWordIndices].filter(index => !occupiedIndices.includes(index));
+        const unfoundWordIndices = new Set();
+        for (const path of unfoundWordPaths) {
+            for (const index of path) {
+                unfoundWordIndices.add(index);
+            }
+        }
+
+        const candidateIndices = [...unfoundWordIndices].filter(index => !occupiedIndices.includes(index) && !history.has(index));
 
         if (candidateIndices.length > 0) {
             return candidateIndices[Math.floor(rand() * candidateIndices.length)];
@@ -178,42 +191,58 @@ const App = () => {
         }
 
         const timer = setInterval(() => {
-            const rand = createRand(seed + timeLeft);
-
-            setTimeLeft(prevTime => prevTime - 1);
-
-            setBonusTiles(prev => {
-                let newBonusTiles = prev.map(tile => {
-                    if (tile.timer > 0) {
-                        return { ...tile, timer: tile.timer - 1 };
-                    }
-                    return tile;
-                }).filter(tile => tile.timer !== 0);
-
-                const now = getTime() - timeLeft;
-                
-                if (now === tripleWordStartTime && !tripleWordHasAppeared) {
-                    const twIndex = findValidBonusTileIndex(rand, newBonusTiles);
-                    if (twIndex !== -1) {
-                        newBonusTiles.push({ index: twIndex, type: 'TW', timer: TRIPLE_WORD_DURATION });
-                        setTripleWordHasAppeared(true);
-                    }
+            setTimeLeft(prevTime => {
+                if (prevTime <= 1) {
+                    setGameOver(true);
+                    return 0;
                 }
-
-                if (now === silverTileStartTime && !silverTileHasAppeared) {
-                    const stIndex = findValidBonusTileIndex(rand, newBonusTiles);
-                    if (stIndex !== -1) {
-                        newBonusTiles.push({ index: stIndex, type: 'ST', used: false, timer: SILVER_TILE_DURATION });
-                        setSilverTileHasAppeared(true);
-                    }
-                }
-                
-                return newBonusTiles;
+                return prevTime - 1;
             });
+
+            const rand = createRand(seed + timeLeft);
+            const now = getTime() - timeLeft;
+
+            let newBonusTiles = [...bonusTiles];
+            let newHistory = new Set(timedTileHistory);
+            let twAppeared = false;
+            let stAppeared = false;
+
+            newBonusTiles = newBonusTiles.map(tile => {
+                if (tile.timer > 0) {
+                    return { ...tile, timer: tile.timer - 1 };
+                }
+                return tile;
+            }).filter(tile => tile.timer !== 0);
+
+            if (now === tripleWordStartTime && !tripleWordHasAppeared) {
+                const occupiedIndices = newBonusTiles.map(t => t.index);
+                const twIndex = findValidBonusTileIndex(rand, occupiedIndices, newHistory);
+                if (twIndex !== -1) {
+                    newBonusTiles.push({ index: twIndex, type: 'TW', timer: TRIPLE_WORD_DURATION });
+                    newHistory.add(twIndex);
+                    twAppeared = true;
+                }
+            }
+
+            if (now === silverTileStartTime && !silverTileHasAppeared) {
+                const occupiedIndices = newBonusTiles.map(t => t.index);
+                const stIndex = findValidBonusTileIndex(rand, occupiedIndices, newHistory);
+                if (stIndex !== -1) {
+                    newBonusTiles.push({ index: stIndex, type: 'ST', used: false, timer: SILVER_TILE_DURATION });
+                    newHistory.add(stIndex);
+                    stAppeared = true;
+                }
+            }
+
+            setBonusTiles(newBonusTiles);
+            setTimedTileHistory(newHistory);
+            if (twAppeared) setTripleWordHasAppeared(true);
+            if (stAppeared) setSilverTileHasAppeared(true);
+
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [gameStarted, gameOver, seed, timeLeft, tripleWordStartTime, tripleWordHasAppeared, silverTileStartTime, silverTileHasAppeared, findValidBonusTileIndex]);
+    }, [gameStarted, gameOver, seed, timeLeft, bonusTiles, timedTileHistory, tripleWordStartTime, tripleWordHasAppeared, silverTileStartTime, silverTileHasAppeared, findValidBonusTileIndex]);
 
 
     useEffect(() => {
