@@ -248,7 +248,7 @@ const App = () => {
             if (path) {
                 const points = calculatePoints(upperCaseWord, path);
                 setFoundWords(prev => [...prev, { word: upperCaseWord, points }]);
-                setLastFoundWord(upperCaseWord);
+                setLastFoundWord({ word: upperCaseWord, points });
             }
         }
     };
@@ -350,7 +350,7 @@ const App = () => {
             <div className="game-area">
                 <h1>Noggle #{seed}</h1>
                 <h2 className="timer">{formatTime(timeLeft)}</h2>
-                {lastFoundWord && <div className="word-toast">{lastFoundWord}</div>}
+                {lastFoundWord && <div className="word-toast">{lastFoundWord.word} {formatPoints(lastFoundWord.points)}</div>}
                 <div
                     className="board-container"
                     onMouseUp={handleMouseUp}
