@@ -345,9 +345,9 @@ const App = () => {
 
     const handleShare = () => {
         if (navigator.share) {
-            const text = `I got ${totalScore} points on Noggle #${seed}. https://noggle.complicity.co?seed=${seed}`;
+            const text = `I got ${totalScore} points on Nomoggle #${seed}. https://noggle.complicity.co?seed=${seed}`;
             navigator.share({
-                title: 'Noggle Score',
+                title: 'Nomoggle Score',
                 text: text,
             })
             .catch(error => console.log('Error sharing', error));
@@ -378,7 +378,7 @@ const App = () => {
     return (
         <div className="App" onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             <div className="game-area">
-                <h1>Noggle #{seed}</h1>
+                <h1>Nomoggle #{seed}</h1>
                 <h2 className="timer">{formatTime(timeLeft)}</h2>
                 {lastFoundWord && <div className="word-toast">{lastFoundWord.word} {formatPoints(lastFoundWord.points)}</div>}
                 <div
