@@ -100,11 +100,28 @@ h1 {
   font-size: 24px;
   font-weight: bold;
   border-radius: 5px;
+  border: 3px solid transparent;
+  box-sizing: border-box;
 }
 
 .tile.selected .tile-content {
     background: linear-gradient(135deg, #1e90ff, #87cefa);
 }
+
+.tile.double-letter .tile-content {
+    background: linear-gradient(135deg, #ff69b4, #ffb6c1);
+}
+
+.tile.double-word .tile-content {
+    background: linear-gradient(135deg, #87ceeb, #add8e6);
+}
+
+.tile.selected.double-letter .tile-content,
+.tile.selected.double-word .tile-content {
+    border-color: #1e90ff;
+}
+
+
 
 .word-input {
   padding: 10px;

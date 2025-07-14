@@ -58,6 +58,8 @@ const App = () => {
     const [lastFoundWord, setLastFoundWord] = useState(null);
     const [showAllWordsModal, setShowAllWordsModal] = useState(false);
     const [modalActiveTab, setModalActiveTab] = useState('found');
+    const [doubleWordIndex, setDoubleWordIndex] = useState(-1);
+    const [doubleLetterIndex, setDoubleLetterIndex] = useState(-1);
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
@@ -70,6 +72,14 @@ const App = () => {
         }
         const selectedLetters = shuffledDice.map(die => die.faces[Math.floor(rand() * 6)]);
         setBoard(selectedLetters);
+
+        let dw = -1, dl = -1;
+        while (dw === dl) {
+            dw = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
+            dl = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
+        }
+        setDoubleWordIndex(dw);
+        setDoubleLetterIndex(dl);
     }, [seed]);
 
     useEffect(() => {
@@ -86,7 +96,7 @@ const App = () => {
     }, []);
 
     const findAllPossibleWords = useCallback(() => {
-        const found = new Set();
+        const found = new Map();
         if (board.length === 0 || wordSet.size === 0) return;
 
         const findWords = (path, currentWord) => {
@@ -95,7 +105,9 @@ const App = () => {
             currentWord += letter;
 
             if (currentWord.length >= 3 && wordSet.has(currentWord)) {
-                found.add(currentWord);
+                if (!found.has(currentWord)) {
+                    found.set(currentWord, path);
+                }
             }
 
             const neighbors = getNeighbors(lastIndex);
@@ -183,10 +195,10 @@ const App = () => {
         const search = (currentWord, index, visited) => {
             const tileLetter = board[index].toUpperCase();
             if (!currentWord.startsWith(tileLetter)) {
-                return false;
+                return null;
             }
             if (currentWord.length === tileLetter.length) {
-                return true;
+                return [index];
             }
 
             const remainingWord = currentWord.substring(tileLetter.length);
@@ -195,26 +207,34 @@ const App = () => {
             const neighbors = getNeighbors(index);
             for (const neighbor of neighbors) {
                 if (!visited.has(neighbor)) {
-                    if (search(remainingWord, neighbor, new Set(visited))) {
-                        return true;
+                    const path = search(remainingWord, neighbor, new Set(visited));
+                    if (path) {
+                        return [index, ...path];
                     }
                 }
             }
-            return false;
+            return null;
         };
 
         for (let i = 0; i < board.length; i++) {
-            if (search(word, i, new Set())) {
-                return true;
+            const path = search(word, i, new Set());
+            if (path) {
+                return path;
             }
         }
-        return false;
+        return null;
     };
 
-    const calculatePoints = (word) => {
+    const calculatePoints = (word, path) => {
         if (word.length <= 2) return 0;
-        if (word.length <= 4) return 1;
-        return word.length - 3;
+        let points = word.length - 3;
+        if (path && path.includes(doubleLetterIndex)) {
+            points += 1;
+        }
+        if (path && path.includes(doubleWordIndex)) {
+            points *= 2;
+        }
+        return points;
     };
 
     const checkWord = (word) => {
@@ -222,12 +242,14 @@ const App = () => {
         if (
             upperCaseWord.length >= 3 &&
             !foundWords.some(item => item.word === upperCaseWord) &&
-            wordSet.has(upperCaseWord) &&
-            isValidBoggleWord(upperCaseWord)
+            wordSet.has(upperCaseWord)
         ) {
-             const points = calculatePoints(upperCaseWord);
-             setFoundWords(prev => [...prev, { word: upperCaseWord, points }]);
-             setLastFoundWord(upperCaseWord);
+            const path = isValidBoggleWord(upperCaseWord);
+            if (path) {
+                const points = calculatePoints(upperCaseWord, path);
+                setFoundWords(prev => [...prev, { word: upperCaseWord, points }]);
+                setLastFoundWord(upperCaseWord);
+            }
         }
     };
 
@@ -316,7 +338,11 @@ const App = () => {
     };
 
     const foundWordsSet = new Set(foundWords.map(item => item.word));
-    const sortedAllWords = [...allPossibleWords].sort((a, b) => calculatePoints(b) - calculatePoints(a));
+    const sortedAllWords = [...allPossibleWords.keys()].sort((a, b) => {
+        const pathA = allPossibleWords.get(a);
+        const pathB = allPossibleWords.get(b);
+        return calculatePoints(b, pathB) - calculatePoints(a, pathA);
+    });
     const totalScore = foundWords.reduce((sum, { points }) => sum + points, 0);
 
     return (
@@ -331,18 +357,23 @@ const App = () => {
                     onMouseLeave={handleMouseUp}
                 >
                     <div className={`board ${!gameStarted ? 'blurred' : ''}`}>
-                        {board.map((letter, index) => (
-                            <div
-                                key={index}
-                                data-index={index}
-                                className={`tile ${selection.includes(index) ? 'selected' : ''}`}
-                                onMouseDown={() => handleMouseDown(index)}
-                                onMouseEnter={() => handleMouseEnter(index)}
-                                onTouchStart={handleTouchStart}
-                            >
-                                <div className="tile-content">{letter}</div>
-                            </div>
-                        ))}
+                        {board.map((letter, index) => {
+                            const isDoubleWord = index === doubleWordIndex;
+                            const isDoubleLetter = index === doubleLetterIndex;
+                            const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${isDoubleWord ? 'double-word' : ''} ${isDoubleLetter ? 'double-letter' : ''}`;
+                            return (
+                                <div
+                                    key={index}
+                                    data-index={index}
+                                    className={tileClasses}
+                                    onMouseDown={() => handleMouseDown(index)}
+                                    onMouseEnter={() => handleMouseEnter(index)}
+                                    onTouchStart={handleTouchStart}
+                                >
+                                    <div className="tile-content">{letter}</div>
+                                </div>
+                            );
+                        })}
                     </div>
                     {!gameStarted && (
                         <div className="start-scrim" onClick={handleStartGame}>
@@ -385,7 +416,7 @@ const App = () => {
                         ))}
                         {activeTab === 'all' && sortedAllWords.map(word => (
                             <li key={word} className={foundWordsSet.has(word) ? 'found-in-all' : 'missed'}>
-                                {word} {formatPoints(calculatePoints(word))}
+                                {word} {formatPoints(calculatePoints(word, allPossibleWords.get(word)))}
                             </li>
                         ))}
                     </ul>
@@ -418,7 +449,7 @@ const App = () => {
                                 ))}
                                 {modalActiveTab === 'all' && sortedAllWords.map(word => (
                                     <li key={word} className={foundWordsSet.has(word) ? 'found-in-all' : 'missed'}>
-                                        {word} {formatPoints(calculatePoints(word))}
+                                        {word} {formatPoints(calculatePoints(word, allPossibleWords.get(word)))}
                                     </li>
                                 ))}
                             </ul>
