@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 
 const DICE = [
@@ -21,21 +21,30 @@ const DICE = [
 ];
 const BOARD_SIZE = 4;
 
-const shuffleArray = (array) => {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
+// Seedable random number generator
+const createRand = (seed) => {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
 };
 
-const generateBoard = () => {
-    let selectedLetters = DICE.map(die => die.faces[Math.floor(Math.random() * 6)]);
-    return shuffleArray(selectedLetters);
+const getSeed = () => {
+    const params = new URLSearchParams(window.location.search);
+    let seed = parseInt(params.get('seed'), 10);
+    if (isNaN(seed) || seed < 1000 || seed > 9999) {
+        seed = Math.floor(Math.random() * 9000) + 1000;
+        window.history.replaceState(null, '', `?seed=${seed}`);
+    }
+    return seed;
 };
+
 
 const App = () => {
-    const [board, setBoard] = useState(generateBoard());
+    const [seed, setSeed] = useState(getSeed());
+    const [board, setBoard] = useState([]);
     const [wordSet, setWordSet] = useState(new Set());
     const [foundWords, setFoundWords] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -49,6 +58,21 @@ const App = () => {
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
 
+    const generateBoard = useCallback(() => {
+        const rand = createRand(seed);
+        const shuffledDice = [...DICE];
+        for (let i = shuffledDice.length - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [shuffledDice[i], shuffledDice[j]] = [shuffledDice[j], shuffledDice[i]];
+        }
+        const selectedLetters = shuffledDice.map(die => die.faces[Math.floor(rand() * 6)]);
+        setBoard(selectedLetters);
+    }, [seed]);
+
+    useEffect(() => {
+        generateBoard();
+    }, [generateBoard]);
+
     useEffect(() => {
         fetch('/words.txt')
             .then(response => response.text())
@@ -58,6 +82,34 @@ const App = () => {
             });
     }, []);
 
+    const findAllPossibleWords = useCallback(() => {
+        const found = new Set();
+        if (board.length === 0 || wordSet.size === 0) return;
+
+        const findWords = (path, currentWord) => {
+            const lastIndex = path[path.length - 1];
+            const letter = board[lastIndex].toUpperCase();
+            currentWord += letter;
+
+            if (currentWord.length >= 3 && wordSet.has(currentWord)) {
+                found.add(currentWord);
+            }
+
+            const neighbors = getNeighbors(lastIndex);
+            for (const neighbor of neighbors) {
+                if (!path.includes(neighbor)) {
+                    findWords([...path, neighbor], currentWord);
+                }
+            }
+        };
+
+        for (let i = 0; i < board.length; i++) {
+            findWords([i], '');
+        }
+        setAllPossibleWords(found);
+    }, [board, wordSet]);
+
+
     useEffect(() => {
         if (gameStarted && timeLeft > 0) {
             const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
@@ -66,7 +118,7 @@ const App = () => {
             setGameOver(true);
             findAllPossibleWords();
         }
-    }, [timeLeft, gameStarted]);
+    }, [timeLeft, gameStarted, findAllPossibleWords]);
 
     useEffect(() => {
         if (gameStarted) {
@@ -110,55 +162,27 @@ const App = () => {
         return neighbors;
     };
 
-    const findWords = (path, currentWord, found) => {
-        const lastIndex = path[path.length - 1];
-        const letter = board[lastIndex].toUpperCase();
-        currentWord += letter;
-
-        if (currentWord.length >= 3 && wordSet.has(currentWord)) {
-            found.add(currentWord);
-        }
-
-        const neighbors = getNeighbors(lastIndex);
-        for (const neighbor of neighbors) {
-            if (!path.includes(neighbor)) {
-                findWords([...path, neighbor], currentWord, found);
-            }
-        }
-    };
-
-    const findAllPossibleWords = () => {
-        const found = new Set();
-        for (let i = 0; i < board.length; i++) {
-            findWords([i], '', found);
-        }
-        setAllPossibleWords(found);
-    };
-
     const isValidBoggleWord = (word) => {
-        const search = (word, index, visited) => {
+        const search = (currentWord, index, visited) => {
             const tileLetter = board[index].toUpperCase();
-            if (!word.startsWith(tileLetter)) {
+            if (!currentWord.startsWith(tileLetter)) {
                 return false;
             }
-            if (word.length === tileLetter.length) {
+            if (currentWord.length === tileLetter.length) {
                 return true;
             }
 
-            const remainingWord = word.substring(tileLetter.length);
+            const remainingWord = currentWord.substring(tileLetter.length);
             visited.add(index);
 
             const neighbors = getNeighbors(index);
             for (const neighbor of neighbors) {
                 if (!visited.has(neighbor)) {
-                    if (search(remainingWord, neighbor, visited)) {
-                        visited.delete(index);
+                    if (search(remainingWord, neighbor, new Set(visited))) {
                         return true;
                     }
                 }
             }
-
-            visited.delete(index);
             return false;
         };
 
@@ -228,12 +252,12 @@ const App = () => {
     };
 
     const handleTouchStart = (e) => {
-        e.preventDefault();
         const index = parseInt(e.currentTarget.dataset.index, 10);
         handleMouseDown(index);
     };
 
     const handleTouchMove = (e) => {
+        if (!isSelecting) return;
         e.preventDefault();
         const touch = e.touches[0];
         const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -245,7 +269,9 @@ const App = () => {
         }
     };
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e) => {
+        if (!isSelecting) return;
+        e.preventDefault();
         handleMouseUp();
     };
 
@@ -266,14 +292,13 @@ const App = () => {
     const sortedAllWords = [...allPossibleWords].sort((a, b) => calculatePoints(b) - calculatePoints(a));
 
     return (
-        <div className="App">
+        <div className="App" onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             <div className="game-area">
-                <h1>Noggle</h1>
+                <h1>Noggle #{seed}</h1>
                 <div
                     className="board-container"
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
-                    onTouchEnd={handleTouchEnd}
                 >
                     <div className={`board ${!gameStarted ? 'blurred' : ''}`}>
                         {board.map((letter, index) => (
@@ -284,7 +309,6 @@ const App = () => {
                                 onMouseDown={() => handleMouseDown(index)}
                                 onMouseEnter={() => handleMouseEnter(index)}
                                 onTouchStart={handleTouchStart}
-                                onTouchMove={handleTouchMove}
                             >
                                 {letter}
                             </div>
@@ -335,3 +359,4 @@ const App = () => {
 };
 
 export default App;
+
