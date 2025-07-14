@@ -295,6 +295,7 @@ const App = () => {
         <div className="App" onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             <div className="game-area">
                 <h1>Noggle #{seed}</h1>
+                <h2 className="timer">{formatTime(timeLeft)}</h2>
                 <div
                     className="board-container"
                     onMouseUp={handleMouseUp}
@@ -332,7 +333,6 @@ const App = () => {
                 />
             </div>
             <div className="sidebar">
-                <div className="timer">{formatTime(timeLeft)}</div>
                 <div className="tab-container">
                     <button className={`tab ${activeTab === 'found' ? 'active' : ''}`} onClick={() => handleTabClick('found')}>
                         Found Words ({foundWords.length})
