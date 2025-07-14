@@ -312,7 +312,7 @@ const App = () => {
 
     const handleTouchStart = (e) => {
         const target = e.target;
-        if (target.classList.contains('tile-content')) {
+        if (target.classList.contains('drag-target')) {
             const parentTile = target.closest('.tile');
             if (parentTile) {
                 const index = parseInt(parentTile.dataset.index, 10);
@@ -326,7 +326,7 @@ const App = () => {
         e.preventDefault();
         const touch = e.touches[0];
         const element = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (element && element.classList.contains('tile-content')) {
+        if (element && element.classList.contains('drag-target')) {
             const parentTile = element.closest('.tile');
             if (parentTile) {
                 const index = parseInt(parentTile.dataset.index, 10);
@@ -379,7 +379,7 @@ const App = () => {
         <div className="App" onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             <div className="game-area">
                 <h1>Nomoggle #{seed}</h1>
-                <h2 className="timer">{formatTime(timeLeft)}</h2>
+                <h2 className={`timer ${timeLeft <= 10 ? 'urgent' : ''}`}>{formatTime(timeLeft)}</h2>
                 {lastFoundWord && <div className="word-toast">{lastFoundWord.word} {formatPoints(lastFoundWord.points)}</div>}
                 <div
                     className="board-container"
@@ -396,11 +396,18 @@ const App = () => {
                                     key={index}
                                     data-index={index}
                                     className={tileClasses}
-                                    onMouseDown={() => handleMouseDown(index)}
-                                    onMouseEnter={() => handleMouseEnter(index)}
-                                    onTouchStart={handleTouchStart}
                                 >
-                                    <div className="tile-content">{letter}</div>
+                                    <div className="tile-content">
+                                        {isDoubleWord && <div className="bonus-chip double-word-chip">DW</div>}
+                                        {isDoubleLetter && <div className="bonus-chip double-letter-chip">DL</div>}
+                                        {letter}
+                                        <div
+                                            className="drag-target"
+                                            onMouseDown={() => handleMouseDown(index)}
+                                            onMouseEnter={() => handleMouseEnter(index)}
+                                            onTouchStart={handleTouchStart}
+                                        ></div>
+                                    </div>
                                 </div>
                             );
                         })}

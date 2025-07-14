@@ -78,12 +78,12 @@ h1 {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 24px;
+  font-size: 30px;
   font-weight: bold;
+  font-family: 'Poppins', sans-serif;
   border-radius: 10px;
   cursor: default;
   user-select: none;
-  padding: 5px;
   box-sizing: border-box;
 }
 
@@ -96,11 +96,46 @@ h1 {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 24px;
+  font-size: 1em;
   font-weight: bold;
   border-radius: 5px;
   border: 3px solid transparent;
   box-sizing: border-box;
+  position: relative;
+}
+
+.drag-target {
+    position: absolute;
+    top: 10%;
+    left: 10%;
+    width: 80%;
+    height: 80%;
+    background-color: transparent;
+    z-index: 1;
+}
+
+.bonus-chip {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2;
+}
+
+.double-word-chip {
+    background-color: #e05a9a;
+}
+
+.double-letter-chip {
+    background-color: #65a0bb;
 }
 
 .tile.selected .tile-content {
@@ -108,11 +143,11 @@ h1 {
 }
 
 .tile.double-letter .tile-content {
-    background: linear-gradient(135deg, #ff69b4, #ffb6c1);
+    background: linear-gradient(135deg, #87ceeb, #add8e6);
 }
 
 .tile.double-word .tile-content {
-    background: linear-gradient(135deg, #87ceeb, #add8e6);
+    background: linear-gradient(135deg, #ff69b4, #ffb6c1);
 }
 
 .tile.selected.double-letter .tile-content,
@@ -162,6 +197,23 @@ h1 {
   font-weight: bold;
   margin-bottom: 10px;
   text-align: center;
+}
+
+.timer.urgent {
+    animation: pulse 1s infinite;
+    color: red;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 .word-list-container {
@@ -300,7 +352,7 @@ h1 {
   .tile {
     width: 100%;
     height: 100%;
-    font-size: 6vw;
+    font-size: 12vw;
   }
 
   .word-input {
