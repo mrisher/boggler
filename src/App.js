@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ConfettiExplosion from 'react-confetti-explosion';
 import ordinal from 'ordinal';
+import seedrandom from 'seedrandom';
 import './App.css';
 
 const DICE = [
@@ -24,16 +25,6 @@ const DICE = [
 const BOARD_SIZE = 4;
 const TRIPLE_WORD_DURATION = 15;
 const SILVER_TILE_DURATION = 15;
-
-// Seedable random number generator
-const createRand = (seed) => {
-  let s = seed % 2147483647;
-  if (s <= 0) s += 2147483646;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-};
 
 const getSeed = () => {
     const params = new URLSearchParams(window.location.search);
@@ -96,7 +87,7 @@ const App = () => {
     }, [foundWords]);
 
     const generateBoard = useCallback(() => {
-        const rand = createRand(seed);
+        const rand = seedrandom(seed);
         const shuffledDice = [...DICE];
         for (let i = shuffledDice.length - 1; i > 0; i--) {
             const j = Math.floor(rand() * (i + 1));
@@ -209,7 +200,7 @@ const App = () => {
                 return prevTime - 1;
             });
 
-            const rand = createRand(seed + timeLeft);
+            const rand = seedrandom(seed + timeLeft);
             const now = getTime() - timeLeft;
 
             let newBonusTiles = [...bonusTiles];
@@ -289,7 +280,7 @@ const App = () => {
     const handleStartGame = () => {
         if (isLoading) return;
         setGameStarted(true);
-        const rand = createRand(seed + 1);
+        const rand = seedrandom(seed + 1);
         const gameDuration = getTime();
         // TW appears in the first half of the game
         setTripleWordStartTime(Math.floor(rand() * (gameDuration / 2)) + (gameDuration / 2));
