@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ConfettiExplosion from 'react-confetti-explosion';
+import ordinal from 'ordinal';
 import './App.css';
 
 const DICE = [
@@ -13,7 +14,7 @@ const DICE = [
     { faces: ["B", "I", "F", "O", "R", "X"] },
     { faces: ["D", "E", "N", "O", "S", "W"] },
     { faces: ["D", "K", "N", "O", "T", "U"] },
-    { faces: ["E", "E", "F", "I", "I", "Y"] },
+    { faces: ["E", "E", "F", "H", "I", "Y"] },
     { faces: ["E", "G", "K", "L", "U", "Y"] },
     { faces: ["E", "G", "I", "N", "T", "V"] },
     { faces: ["E", "H", "I", "N", "P", "S"] },
@@ -37,11 +38,20 @@ const createRand = (seed) => {
 const getSeed = () => {
     const params = new URLSearchParams(window.location.search);
     let seed = parseInt(params.get('seed'), 10);
+    let date = null;
     if (isNaN(seed) || seed < 1000 || seed > 9999) {
-        seed = Math.floor(Math.random() * 9000) + 1000;
-        window.history.replaceState(null, '', `?seed=${seed}`);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth() + 1;
+        const day = today.getDate();
+        seed = year * 10000 + month * 100 + day;
+
+        const monthNames = ["January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        date = `${monthNames[today.getMonth()]} ${ordinal(day)}`;
     }
-    return seed;
+    return { seed, date };
 };
 
 const getTime = () => {
@@ -55,7 +65,7 @@ const getTime = () => {
 
 
 const App = () => {
-    const [seed, setSeed] = useState(getSeed());
+    const [{ seed, date }] = useState(getSeed);
     const [board, setBoard] = useState([]);
     const [wordSet, setWordSet] = useState(new Set());
     const [foundWords, setFoundWords] = useState([]);
@@ -100,7 +110,7 @@ const App = () => {
             dw = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
             dl = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
         }
-        
+
         setBonusTiles([
             { index: dw, type: 'DW' },
             { index: dl, type: 'DL' }
@@ -162,7 +172,7 @@ const App = () => {
 
     const findValidBonusTileIndex = useCallback((rand, occupiedIndices, history) => {
         const foundWordsSet = new Set(foundWordsRef.current.map(item => item.word));
-        
+
         const unfoundWordPaths = [];
         for (const [word, path] of allPossibleWords.entries()) {
             if (!foundWordsSet.has(word)) {
@@ -287,11 +297,6 @@ const App = () => {
         // ST appears in the second half of the game
         setSilverTileStartTime(Math.floor(rand() * (gameDuration / 2)));
         setSilverTileHasAppeared(false);
-    };
-
-    const handleNewGame = () => {
-        const newSeed = Math.floor(Math.random() * 9000) + 1000;
-        window.location.search = `seed=${newSeed}`;
     };
 
     const handleTabClick = (tab) => {
@@ -499,7 +504,7 @@ const App = () => {
     return (
         <div className="App" onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             <div className="game-area">
-                <h1>Nomoggle #{seed}</h1>
+                <h1>Nomoggle - {date ? date : `#${seed}`}</h1>
                 <h2 className={`timer ${timeLeft <= 10 ? 'urgent' : ''}`}>{formatTime(timeLeft)}</h2>
                 {lastFoundWord && <div className="word-toast">{lastFoundWord.word} {formatPoints(lastFoundWord.points)}</div>}
                 <div
@@ -519,7 +524,7 @@ const App = () => {
                                 }
                             }
                             const tileClasses = `tile ${selection.includes(index) ? 'selected' : ''} ${tileTypeClass} ${isLoading ? 'shaking' : ''}`;
-                            
+
                             let chip = null;
                             if (bonusTile) {
                                 if (bonusTile.type === 'DW') chip = <div className="bonus-chip double-word-chip">DW</div>;
@@ -576,7 +581,6 @@ const App = () => {
                             <button className="share-button" onClick={handleShare}>Share Score</button>
                         </>
                     )}
-                    <button className="new-game-button" onClick={handleNewGame}>New Game</button>
                 </div>
             </div>
             <div className="sidebar">
