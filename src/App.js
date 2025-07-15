@@ -35,7 +35,7 @@ const getSeed = () => {
         const year = today.getFullYear();
         const month = today.getMonth() + 1;
         const day = today.getDate();
-        seed = year * 10000 + month * 100 + day;
+        seed = year * 10000 + month * 100 + day + 999;
 
         const monthNames = ["January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
