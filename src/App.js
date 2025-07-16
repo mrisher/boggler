@@ -5,22 +5,22 @@ import seedrandom from 'seedrandom';
 import './App.css';
 
 const DICE = [
-    { faces: ["A", "A", "C", "I", "O", "T"] },
-    { faces: ["A", "B", "I", "L", "T", "Y"] },
-    { faces: ["A", "B", "J", "M", "O", "Qu"] },
-    { faces: ["A", "C", "D", "E", "M", "P"] },
-    { faces: ["A", "C", "E", "L", "R", "S"] },
-    { faces: ["A", "D", "E", "N", "V", "Z"] },
-    { faces: ["A", "H", "M", "O", "R", "S"] },
-    { faces: ["B", "I", "F", "O", "R", "X"] },
-    { faces: ["D", "E", "N", "O", "S", "W"] },
-    { faces: ["D", "K", "N", "O", "T", "U"] },
-    { faces: ["E", "E", "F", "H", "I", "Y"] },
-    { faces: ["E", "G", "K", "L", "U", "Y"] },
-    { faces: ["E", "G", "I", "N", "T", "V"] },
-    { faces: ["E", "H", "I", "N", "P", "S"] },
-    { faces: ["E", "L", "P", "S", "T", "U"] },
-    { faces: ["G", "I", "L", "R", "U", "W"] }
+    { faces: ["A", "A", "E", "E", "G", "N"] },
+    { faces: ["A", "B", "B", "J", "O", "O"] },
+    { faces: ["A", "C", "H", "O", "P", "S"] },
+    { faces: ["A", "F", "F", "K", "P", "S"] },
+    { faces: ["A", "O", "O", "T", "T", "W"] },
+    { faces: ["C", "I", "M", "O", "T", "U"] },
+    { faces: ["D", "E", "I", "L", "R", "X"] },
+    { faces: ["D", "E", "L", "R", "V", "Y"] },
+    { faces: ["D", "I", "S", "T", "T", "Y"] },
+    { faces: ["E", "E", "G", "H", "N", "W"] },
+    { faces: ["E", "E", "I", "N", "S", "U"] },
+    { faces: ["E", "H", "R", "T", "V", "W"] },
+    { faces: ["E", "I", "O", "S", "S", "T"] },
+    { faces: ["E", "L", "R", "T", "T", "Y"] },
+    { faces: ["H", "I", "M", "N", "U", "Qu"] },
+    { faces: ["H", "L", "N", "N", "R", "Z"] }
 ];
 const BOARD_SIZE = 4;
 const TRIPLE_WORD_DURATION = 15;
@@ -35,7 +35,7 @@ const getSeed = () => {
         const year = today.getFullYear();
         const month = today.getMonth() + 1;
         const day = today.getDate();
-        seed = year * 10000 + month * 100 + day + 999;
+        seed = year * 10000 + month * 100 + day;
 
         const monthNames = ["January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
