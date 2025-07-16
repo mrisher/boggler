@@ -29,7 +29,13 @@ const HARLEQUIN_DURATION = 15;
 
 const getSeed = () => {
     const params = new URLSearchParams(window.location.search);
-    let seed = parseInt(params.get("seed"), 10);
+    const seedParam = params.get("seed");
+
+    if (seedParam === 'debug') {
+        return { seed: 'debug', date: 'DEBUG MODE' };
+    }
+
+    let seed = parseInt(seedParam, 10);
     let date = null;
     if (isNaN(seed) || seed < 1000 || seed > 9999) {
         const today = new Date();
@@ -109,14 +115,22 @@ function bonusReducer(state, action) {
     switch (action.type) {
         case 'START_GAME': {
             const { seed, isDebug } = action.payload;
-            const rand = seedrandom(seed + 1);
-            const gameDuration = getTime();
-            const twStartTime = Math.floor(rand() * (gameDuration / 2)) + gameDuration / 2;
-            const stStartTime = Math.floor(rand() * (gameDuration / 2));
-            const hqStartTime = Math.floor(rand() * (gameDuration / 3)) + Math.floor(gameDuration / 3);
+            let twStartTime, stStartTime, hqStartTime;
+
+            if (seed === 'debug') {
+                hqStartTime = 1;
+                stStartTime = hqStartTime + HARLEQUIN_DURATION + 1;
+                twStartTime = stStartTime + SILVER_TILE_DURATION + 1;
+            } else {
+                const rand = seedrandom(seed + 1);
+                const gameDuration = getTime();
+                twStartTime = Math.floor(rand() * (gameDuration / 2)) + gameDuration / 2;
+                stStartTime = Math.floor(rand() * (gameDuration / 2));
+                hqStartTime = Math.floor(rand() * (gameDuration / 3)) + Math.floor(gameDuration / 3);
+            }
 
             if (isDebug) {
-                console.log(`Game started. Bonus schedule:\n- Triple Word at: ${getTime() - twStartTime}s\n- Silver Tile at: ${getTime() - stStartTime}s\n- Harlequin at: ${getTime() - hqStartTime}s`);
+                console.log(`Game started. Bonus schedule:\n- Triple Word at: ${twStartTime}s\n- Silver Tile at: ${stStartTime}s\n- Harlequin at: ${hqStartTime}s`);
             }
 
             return {
@@ -128,62 +142,81 @@ function bonusReducer(state, action) {
                 harlequin: { ...state.harlequin, startTime: hqStartTime, hasAppeared: false },
             };
         }
+
         case 'TICK': {
-
-            const { allPossibleWords, foundWords, seed, timeLeft } = action.payload;
+            const { allPossibleWords, foundWords, seed, timeLeft, isDebug } = action.payload;
             const now = getTime() - timeLeft;
-            let newState = { ...state };
 
-            // 1. Decrement all active timers
-            newState.bonusTiles = state.bonusTiles.map(tile => 
-                tile.timer > 0 ? { ...tile, timer: tile.timer - 1 } : tile
-            ).filter(tile => tile.timer !== 0);
-
+            // Step 1: Create the next state for harlequin by ticking down the timer if it's active.
+            let nextHarlequin = state.harlequin;
             if (state.harlequin.isActive) {
                 const newTimer = state.harlequin.timer - 1;
-                newState.harlequin = { 
-                    ...state.harlequin, 
-                    isActive: newTimer > 0, 
-                    timer: newTimer 
+                nextHarlequin = {
+                    ...state.harlequin,
+                    timer: newTimer,
+                    isActive: newTimer > 0,
                 };
             }
 
-            // 2. Check if a new bonus should activate
-            const isBonusCurrentlyActive = newState.harlequin.isActive || newState.bonusTiles.some(t => t.type === 'TW' || t.type === 'ST');
+            // Step 2: Create the next state for bonus tiles.
+            let nextBonusTiles = state.bonusTiles
+                .map(tile => {
+                    if (tile.timer > 0) {
+                        return { ...tile, timer: tile.timer - 1 };
+                    }
+                    return tile;
+                })
+                .filter(tile => tile.timer === undefined || tile.timer > 0);
+
+            let nextTimedTileHistory = state.timedTileHistory;
+            let nextTripleWordHasAppeared = state.tripleWordHasAppeared;
+            let nextSilverTileHasAppeared = state.silverTileHasAppeared;
+
+            // Step 3: Check if a new bonus should activate.
+            const isBonusCurrentlyActive = nextHarlequin.isActive || nextBonusTiles.some(t => t.type === 'TW' || t.type === 'ST');
             if (!isBonusCurrentlyActive) {
-                const rand = seedrandom(seed + timeLeft);
+                // Triple Word
                 if (now === state.tripleWordStartTime && !state.tripleWordHasAppeared) {
-                    const occupiedIndices = newState.bonusTiles.map(t => t.index);
-                    const twIndex = findValidBonusTileIndex(allPossibleWords, foundWords, rand, occupiedIndices, newState.timedTileHistory);
+                    const rand = seedrandom(seed + timeLeft);
+                    const occupiedIndices = nextBonusTiles.map(t => t.index);
+                    const twIndex = findValidBonusTileIndex(allPossibleWords, foundWords, rand, occupiedIndices, state.timedTileHistory);
                     if (twIndex !== -1) {
-                        newState.bonusTiles.push({ index: twIndex, type: 'TW', timer: TRIPLE_WORD_DURATION });
-                        newState.timedTileHistory = new Set(newState.timedTileHistory).add(twIndex);
-                        newState.tripleWordHasAppeared = true;
+                        if (isDebug) console.log(`TW tile placed at ${twIndex}.`);
+                        nextBonusTiles = [...nextBonusTiles, { index: twIndex, type: 'TW', timer: TRIPLE_WORD_DURATION }];
+                        nextTimedTileHistory = new Set(nextTimedTileHistory).add(twIndex);
+                        nextTripleWordHasAppeared = true;
                     }
-                } else if (now === state.silverTileStartTime && !state.silverTileHasAppeared) {
-                    const occupiedIndices = newState.bonusTiles.map(t => t.index);
-                    const stIndex = findValidBonusTileIndex(allPossibleWords, foundWords, rand, occupiedIndices, newState.timedTileHistory);
+                }
+                
+                // Silver Tile
+                if (now === state.silverTileStartTime && !state.silverTileHasAppeared) {
+                    const rand = seedrandom(seed + timeLeft);
+                    const occupiedIndices = nextBonusTiles.map(t => t.index);
+                    const stIndex = findValidBonusTileIndex(allPossibleWords, foundWords, rand, occupiedIndices, state.timedTileHistory);
                     if (stIndex !== -1) {
-                        newState.bonusTiles.push({ index: stIndex, type: 'ST', used: false, timer: SILVER_TILE_DURATION });
-                        newState.timedTileHistory = new Set(newState.timedTileHistory).add(stIndex);
-                        newState.silverTileHasAppeared = true;
+                        if (isDebug) console.log(`ST tile placed at ${stIndex}.`);
+                        nextBonusTiles = [...nextBonusTiles, { index: stIndex, type: 'ST', used: false, timer: SILVER_TILE_DURATION }];
+                        nextTimedTileHistory = new Set(nextTimedTileHistory).add(stIndex);
+                        nextSilverTileHasAppeared = true;
                     }
-                } else if (now === state.harlequin.startTime && !state.harlequin.hasAppeared) {
+                }
+                
+                // Harlequin
+                if (now === state.harlequin.startTime && !state.harlequin.hasAppeared) {
                     const foundWordsSet = new Set(foundWords.map((item) => item.word));
                     const unfoundWords = [...allPossibleWords.keys()].filter(
                         (word) => !foundWordsSet.has(word)
                     );
-                    const longUnfoundWords = unfoundWords.filter(
-                        (word) => word.length >= 7
-                    );
 
-                    if (longUnfoundWords.length > 0) {
-                        const word = longUnfoundWords[Math.floor(rand() * longUnfoundWords.length)];
-                        const path = allPossibleWords.get(word);
+                    if (unfoundWords.length > 0) {
+                        const longestWord = unfoundWords.reduce((a, b) => a.length >= b.length ? a : b, '');
+                        const path = allPossibleWords.get(longestWord);
+
                         if (path && path.length >= 2) {
-                            newState.harlequin = {
-                                ...state.harlequin,
-                                word: word,
+                            if (isDebug) console.log("Harlequin activating. Word:", longestWord);
+                            nextHarlequin = {
+                                startTime: state.harlequin.startTime,
+                                word: longestWord,
                                 positions: [
                                     { index: path[0], type: 1 },
                                     { index: path[path.length - 1], type: 2 },
@@ -196,7 +229,16 @@ function bonusReducer(state, action) {
                     }
                 }
             }
-            return newState;
+
+            // Step 4: Return the final state.
+            return {
+                ...state,
+                harlequin: nextHarlequin,
+                bonusTiles: nextBonusTiles,
+                timedTileHistory: nextTimedTileHistory,
+                tripleWordHasAppeared: nextTripleWordHasAppeared,
+                silverTileHasAppeared: nextSilverTileHasAppeared,
+            };
         }
         case 'HARLEQUIN_SUCCESS':
             return {
@@ -345,26 +387,28 @@ const App = () => {
 
         const timer = setInterval(() => {
             setTimeLeft((prevTime) => {
-                if (prevTime <= 1) {
+                const newTime = prevTime > 0 ? prevTime - 1 : 0;
+                if (newTime === 0 && !gameOver) {
                     setGameOver(true);
-                    return 0;
                 }
-                return prevTime - 1;
-            });
-            dispatch({
-                type: 'TICK',
-                payload: {
-                    allPossibleWords,
-                    foundWords,
-                    seed,
-                    timeLeft,
-                    isDebug,
-                },
+
+                dispatch({
+                    type: 'TICK',
+                    payload: {
+                        allPossibleWords,
+                        foundWords: foundWordsRef.current,
+                        seed,
+                        timeLeft: newTime,
+                        isDebug,
+                    },
+                });
+
+                return newTime;
             });
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [gameStarted, gameOver, allPossibleWords, foundWords, seed, timeLeft, isDebug, dispatch]);
+    }, [gameStarted, gameOver, allPossibleWords, seed, isDebug, dispatch]);
 
     useEffect(() => {
         if (timeLeft === 0 && gameStarted && !gameOver) {
@@ -397,18 +441,16 @@ const App = () => {
         }
     }, [lastFoundWord]);
 
-    const handleStartGame = () => {
-        if (isLoading) return;
-        setGameStarted(true);
-        dispatch({ type: 'START_GAME', payload: { seed } });
-        if (isDebug) {
-            const rand = seedrandom(seed + 1);
-            const gameDuration = getTime();
-            const twStartTime = Math.floor(rand() * (gameDuration / 2)) + gameDuration / 2;
-            const stStartTime = Math.floor(rand() * (gameDuration / 2));
-            const hqStartTime = Math.floor(rand() * (gameDuration / 3)) + Math.floor(gameDuration / 3);
-            console.log(`Game started. Bonus schedule:\n- Triple Word at: ${getTime() - twStartTime}s\n- Silver Tile at: ${getTime() - stStartTime}s\n- Harlequin at: ${getTime() - hqStartTime}s`);
+    useEffect(() => {
+        if (isDebug && harlequin.isActive) {
+            console.log("Harlequin state is now ACTIVE in component:", harlequin);
         }
+    }, [isDebug, harlequin.isActive, harlequin]);
+
+    const handleStartGame = () => {
+        if (isLoading || allPossibleWords.size === 0) return;
+        setGameStarted(true);
+        dispatch({ type: 'START_GAME', payload: { seed, isDebug } });
     };
 
     const handleTabClick = (tab) => {
@@ -620,7 +662,7 @@ const App = () => {
     const totalScore = foundWords.reduce((sum, { points }) => sum + points, 0);
 
     let bonusMessage = '';
-    const activeTimedTile = bonusTiles.find(t => t.type === 'TW' || t.type === 'ST');
+    const activeTimedTile = bonusTiles.find(t => t.type === 'TW' || (t.type === 'ST' && !t.used));
     if (harlequin.isActive) {
         bonusMessage = `Lengthy Challenge: Find a word connecting the two tiles! (${harlequin.timer}s)`;
     } else if (activeTimedTile) {
@@ -654,61 +696,42 @@ const App = () => {
                     >
                         {board.map((letter, index) => {
                             const bonusTile = bonusTiles.find((t) => t.index === index);
-                            let tileTypeClass = "";
-                            if (bonusTile) {
-                                if (bonusTile.type === "ST" && bonusTile.used) {
-                                    tileTypeClass = "";
-                                } else {
-                                    tileTypeClass = `${bonusTile.type.toLowerCase()}-tile`;
-                                }
-                            }
                             const harlequinTile = harlequin.positions.find(
                                 (p) => p.index === index
                             );
                             const isHarlequin = !!harlequinTile;
-                            const harlequinTypeClass = isHarlequin
-                                ? `harlequin-${harlequinTile.type}`
-                                : "";
-                            const harlequinLitClass =
-                                harlequin.isActive && isHarlequin ? "lit" : "";
-                            const tileClasses = `tile ${
-                                selection.includes(index) ? "selected" : ""
-                            } ${tileTypeClass} ${
-                                isHarlequin ? "harlequin-tile" : ""
-                            } ${harlequinTypeClass} ${harlequinLitClass} ${
-                                isLoading ? "shaking" : ""
-                            }`;
+
+                            const classes = ['tile'];
+                            if (selection.includes(index)) {
+                                classes.push('selected');
+                            }
+                            if (isLoading) {
+                                classes.push('shaking');
+                            }
+
+                            if (isHarlequin) {
+                                classes.push('harlequin-tile', `harlequin-${harlequinTile.type}`);
+                                if (harlequin.isActive) {
+                                    classes.push('lit');
+                                }
+                            } else if (bonusTile) {
+                                if (!(bonusTile.type === 'ST' && bonusTile.used)) {
+                                    classes.push(`${bonusTile.type.toLowerCase()}-tile`);
+                                }
+                            }
+                            
+                            const tileClasses = classes.join(' ');
 
                             if (isDebug && isHarlequin) {
-                                console.log(`Tile ${index} (Harlequin): type=${harlequinTile.type}, active=${harlequin.isActive}, classes="${tileClasses}"`);
+                                console.log(`[Render] Tile ${index} (Harlequin): type=${harlequinTile.type}, active=${harlequin.isActive}, classes="${tileClasses}"`);
                             }
 
                             let chip = null;
-                            if (bonusTile) {
-                                if (bonusTile.type === "DW")
-                                    chip = (
-                                        <div className="bonus-chip double-word-chip">
-                                            DW
-                                        </div>
-                                    );
-                                else if (bonusTile.type === "DL")
-                                    chip = (
-                                        <div className="bonus-chip double-letter-chip">
-                                            DL
-                                        </div>
-                                    );
-                                else if (bonusTile.type === "TW")
-                                    chip = (
-                                        <div className="bonus-chip triple-word-chip">
-                                            TW
-                                        </div>
-                                    );
-                                else if (bonusTile.type === "ST" && !bonusTile.used)
-                                    chip = (
-                                        <div className="bonus-chip silver-tile-chip">
-                                            10x
-                                        </div>
-                                    );
+                            if (bonusTile && !isHarlequin) {
+                                if (bonusTile.type === "DW") chip = <div className="bonus-chip double-word-chip">DW</div>;
+                                else if (bonusTile.type === "DL") chip = <div className="bonus-chip double-letter-chip">DL</div>;
+                                else if (bonusTile.type === "TW") chip = <div className="bonus-chip triple-word-chip">TW</div>;
+                                else if (bonusTile.type === "ST" && !bonusTile.used) chip = <div className="bonus-chip silver-tile-chip">10x</div>;
                             }
 
                             return (
@@ -719,20 +742,9 @@ const App = () => {
                                     style={{ animationDelay: `${Math.random() * 0.5}s` }}
                                 >
                                     <div className="tile-content" data-letter={letter}>
-                                        {isExploding &&
-                                            bonusTile &&
-                                            bonusTile.type === "ST" && (
-                                                <ConfettiExplosion
-                                                    onComplete={() =>
-                                                        setIsExploding(false)
-                                                    }
-                                                    colors={[
-                                                        "#C0C0C0",
-                                                        "#D3D3D3",
-                                                        "#E0E0E0",
-                                                    ]}
-                                                />
-                                            )}
+                                        {isExploding && bonusTile && bonusTile.type === "ST" && (
+                                            <ConfettiExplosion onComplete={() => setIsExploding(false)} colors={['#C0C0C0', '#D3D3D3', '#E0E0E0']} />
+                                        )}
                                         {chip}
                                         {letter}
                                         <div
@@ -748,10 +760,10 @@ const App = () => {
                     </div>
                     {!gameStarted && (
                         <div
-                            className={`start-scrim ${isLoading ? "disabled" : ""}`}
+                            className={`start-scrim ${isLoading || allPossibleWords.size === 0 ? "disabled" : ""}`}
                             onClick={handleStartGame}
                         >
-                            <h2>{isLoading ? "Loading..." : "Click to Start"}</h2>
+                            <h2>{isLoading || allPossibleWords.size === 0 ? "Loading..." : "Click to Start"}</h2>
                         </div>
                     )}
                 </div>
