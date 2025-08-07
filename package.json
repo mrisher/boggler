@@ -6,7 +6,7 @@
   "scripts": {
     "start": "NODE_OPTIONS=--openssl-legacy-provider react-scripts start",
     "build": "NODE_OPTIONS=--openssl-legacy-provider react-scripts build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "react-scripts test"
   },
   "dependencies": {
     "ordinal": "^1.0.3",
@@ -16,6 +16,9 @@
     "seedrandom": "^3.0.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^5.16.2",
+    "@testing-library/react": "^12.1.2",
+    "@testing-library/user-event": "^13.5.0",
     "react-scripts": "^4.0.3"
   },
   "keywords": [],

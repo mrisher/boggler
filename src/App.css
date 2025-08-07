@@ -356,6 +356,20 @@ h1 {
     color: red;
 }
 
+.game-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 20px;
+    box-sizing: border-box;
+}
+
+.score {
+    font-size: 24px;
+    font-weight: bold;
+}
+
 @keyframes pulse {
     0% {
         transform: scale(1);

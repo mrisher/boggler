@@ -1,274 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useReducer } from "react";
 import ConfettiExplosion from "react-confetti-explosion";
-import ordinal from "ordinal";
 import seedrandom from "seedrandom";
 import "./App.css";
-
-const DICE = [
-    { faces: ["A", "A", "E", "E", "G", "N"] },
-    { faces: ["A", "B", "B", "J", "O", "O"] },
-    { faces: ["A", "C", "H", "O", "P", "S"] },
-    { faces: ["A", "F", "F", "K", "P", "S"] },
-    { faces: ["A", "O", "O", "T", "T", "W"] },
-    { faces: ["C", "I", "M", "O", "T", "U"] },
-    { faces: ["D", "E", "I", "L", "R", "X"] },
-    { faces: ["D", "E", "L", "R", "V", "Y"] },
-    { faces: ["D", "I", "S", "T", "T", "Y"] },
-    { faces: ["E", "E", "G", "H", "N", "W"] },
-    { faces: ["E", "E", "I", "N", "S", "U"] },
-    { faces: ["E", "H", "R", "T", "V", "W"] },
-    { faces: ["E", "I", "O", "S", "S", "T"] },
-    { faces: ["E", "L", "R", "T", "T", "Y"] },
-    { faces: ["H", "I", "M", "N", "U", "Qu"] },
-    { faces: ["H", "L", "N", "N", "R", "Z"] },
-];
-const BOARD_SIZE = 4;
-const TRIPLE_WORD_DURATION = 15;
-const SILVER_TILE_DURATION = 15;
-const HARLEQUIN_DURATION = 15;
-
-const getSeed = () => {
-    const params = new URLSearchParams(window.location.search);
-    const seedParam = params.get("seed");
-
-    if (seedParam === 'debug') {
-        return { seed: 'debug', date: 'DEBUG MODE' };
-    }
-
-    let seed = parseInt(seedParam, 10);
-    let date = null;
-    if (isNaN(seed) || seed < 1000 || seed > 9999) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth() + 1;
-        const day = today.getDate();
-        seed = year * 10000 + month * 100 + day;
-
-        const monthNames = [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-        ];
-        date = `${monthNames[today.getMonth()]} ${ordinal(day)}`;
-    }
-    return { seed, date };
-};
-
-const getTime = () => {
-    const params = new URLSearchParams(window.location.search);
-    let time = parseInt(params.get("time"), 10);
-    if (isNaN(time) || time <= 0) {
-        return 120;
-    }
-    return time;
-};
-
-const initialState = {
-    bonusTiles: [],
-    harlequin: {
-        word: null,
-        positions: [],
-        isActive: false,
-        timer: 0,
-        startTime: 0,
-        hasAppeared: false,
-    },
-    bonusMessage: "",
-    tripleWordStartTime: 0,
-    tripleWordHasAppeared: false,
-    silverTileStartTime: 0,
-    silverTileHasAppeared: false,
-    timedTileHistory: new Set(),
-};
-
-function findValidBonusTileIndex(allPossibleWords, foundWords, rand, occupiedIndices, history) {
-    const foundWordsSet = new Set(foundWords.map(item => item.word));
-    const unfoundWordPaths = [];
-    for (const [word, path] of allPossibleWords.entries()) {
-        if (!foundWordsSet.has(word)) {
-            unfoundWordPaths.push(path);
-        }
-    }
-    const unfoundWordIndices = new Set();
-    for (const path of unfoundWordPaths) {
-        for (const index of path) {
-            unfoundWordIndices.add(index);
-        }
-    }
-    const candidateIndices = [...unfoundWordIndices].filter(index => !occupiedIndices.includes(index) && !history.has(index));
-    if (candidateIndices.length > 0) {
-        return candidateIndices[Math.floor(rand() * candidateIndices.length)];
-    }
-    return -1;
-}
-
-function bonusReducer(state, action) {
-    switch (action.type) {
-        case 'START_GAME': {
-            const { seed, isDebug } = action.payload;
-            let twStartTime, stStartTime, hqStartTime;
-
-            if (seed === 'debug') {
-                hqStartTime = 1;
-                stStartTime = hqStartTime + HARLEQUIN_DURATION + 1;
-                twStartTime = stStartTime + SILVER_TILE_DURATION + 1;
-            } else {
-                const rand = seedrandom(seed + 1);
-                const gameDuration = getTime();
-                twStartTime = Math.floor(rand() * (gameDuration / 2)) + gameDuration / 2;
-                stStartTime = Math.floor(rand() * (gameDuration / 2));
-                hqStartTime = Math.floor(rand() * (gameDuration / 3)) + Math.floor(gameDuration / 3);
-            }
-
-            if (isDebug) {
-                console.log(`Game started. Bonus schedule:\n- Triple Word at: ${twStartTime}s\n- Silver Tile at: ${stStartTime}s\n- Harlequin at: ${hqStartTime}s`);
-            }
-
-            return {
-                ...state,
-                tripleWordStartTime: twStartTime,
-                tripleWordHasAppeared: false,
-                silverTileStartTime: stStartTime,
-                silverTileHasAppeared: false,
-                harlequin: { ...state.harlequin, startTime: hqStartTime, hasAppeared: false },
-            };
-        }
-
-        case 'TICK': {
-            const { allPossibleWords, foundWords, seed, timeLeft, isDebug } = action.payload;
-            const now = getTime() - timeLeft;
-
-            // Step 1: Create the next state for harlequin by ticking down the timer if it's active.
-            let nextHarlequin = state.harlequin;
-            if (state.harlequin.isActive) {
-                const newTimer = state.harlequin.timer - 1;
-                nextHarlequin = {
-                    ...state.harlequin,
-                    timer: newTimer,
-                    isActive: newTimer > 0,
-                };
-            }
-
-            // Step 2: Create the next state for bonus tiles.
-            let nextBonusTiles = state.bonusTiles
-                .map(tile => {
-                    if (tile.timer > 0) {
-                        return { ...tile, timer: tile.timer - 1 };
-                    }
-                    return tile;
-                })
-                .filter(tile => tile.timer === undefined || tile.timer > 0);
-
-            let nextTimedTileHistory = state.timedTileHistory;
-            let nextTripleWordHasAppeared = state.tripleWordHasAppeared;
-            let nextSilverTileHasAppeared = state.silverTileHasAppeared;
-
-            // Step 3: Check if a new bonus should activate.
-            const isBonusCurrentlyActive = nextHarlequin.isActive || nextBonusTiles.some(t => t.type === 'TW' || t.type === 'ST');
-            if (!isBonusCurrentlyActive) {
-                // Triple Word
-                if (now === state.tripleWordStartTime && !state.tripleWordHasAppeared) {
-                    const rand = seedrandom(seed + timeLeft);
-                    const occupiedIndices = nextBonusTiles.map(t => t.index);
-                    const twIndex = findValidBonusTileIndex(allPossibleWords, foundWords, rand, occupiedIndices, state.timedTileHistory);
-                    if (twIndex !== -1) {
-                        if (isDebug) console.log(`TW tile placed at ${twIndex}.`);
-                        nextBonusTiles = [...nextBonusTiles, { index: twIndex, type: 'TW', timer: TRIPLE_WORD_DURATION }];
-                        nextTimedTileHistory = new Set(nextTimedTileHistory).add(twIndex);
-                        nextTripleWordHasAppeared = true;
-                    }
-                }
-                
-                // Silver Tile
-                if (now === state.silverTileStartTime && !state.silverTileHasAppeared) {
-                    const rand = seedrandom(seed + timeLeft);
-                    const occupiedIndices = nextBonusTiles.map(t => t.index);
-                    const stIndex = findValidBonusTileIndex(allPossibleWords, foundWords, rand, occupiedIndices, state.timedTileHistory);
-                    if (stIndex !== -1) {
-                        if (isDebug) console.log(`ST tile placed at ${stIndex}.`);
-                        nextBonusTiles = [...nextBonusTiles, { index: stIndex, type: 'ST', used: false, timer: SILVER_TILE_DURATION }];
-                        nextTimedTileHistory = new Set(nextTimedTileHistory).add(stIndex);
-                        nextSilverTileHasAppeared = true;
-                    }
-                }
-                
-                // Harlequin
-                if (now === state.harlequin.startTime && !state.harlequin.hasAppeared) {
-                    const foundWordsSet = new Set(foundWords.map((item) => item.word));
-                    const unfoundWords = [...allPossibleWords.keys()].filter(
-                        (word) => !foundWordsSet.has(word)
-                    );
-
-                    if (unfoundWords.length > 0) {
-                        const longestWord = unfoundWords.reduce((a, b) => a.length >= b.length ? a : b, '');
-                        const path = allPossibleWords.get(longestWord);
-
-                        if (path && path.length >= 2) {
-                            if (isDebug) console.log("Harlequin activating. Word:", longestWord);
-                            nextHarlequin = {
-                                startTime: state.harlequin.startTime,
-                                word: longestWord,
-                                positions: [
-                                    { index: path[0], type: 1 },
-                                    { index: path[path.length - 1], type: 2 },
-                                ],
-                                isActive: true,
-                                timer: HARLEQUIN_DURATION,
-                                hasAppeared: true,
-                            };
-                        }
-                    }
-                }
-            }
-
-            // Step 4: Return the final state.
-            return {
-                ...state,
-                harlequin: nextHarlequin,
-                bonusTiles: nextBonusTiles,
-                timedTileHistory: nextTimedTileHistory,
-                tripleWordHasAppeared: nextTripleWordHasAppeared,
-                silverTileHasAppeared: nextSilverTileHasAppeared,
-            };
-        }
-        case 'HARLEQUIN_SUCCESS':
-            return {
-                ...state,
-                harlequin: { ...state.harlequin, isActive: false, word: null, positions: [] },
-            };
-        case 'USE_SILVER_TILE':
-            return {
-                ...state,
-                bonusTiles: state.bonusTiles.map(t => 
-                    t.index === action.payload.index ? { ...t, used: true } : t
-                ),
-            };
-        case 'BOARD_GENERATED': {
-            const { dw, dl } = action.payload;
-            return {
-                ...state,
-                bonusTiles: [
-                    { index: dw, type: 'DW' },
-                    { index: dl, type: 'DL' },
-                ],
-                timedTileHistory: new Set(),
-            };
-        }
-        default:
-            return state;
-    }
-}
+import { getSeed, getTime, DICE, BOARD_SIZE } from "./utils";
+import { bonusReducer, initialState } from "./bonusReducer";
 
 const App = () => {
+    // --- STATE MANAGEMENT ---
     const [isDebug] = useState(
         () => new URLSearchParams(window.location.search).get("debug") === "true"
     );
@@ -289,6 +27,7 @@ const App = () => {
     const [modalActiveTab, setModalActiveTab] = useState("found");
     const [isLoading, setIsLoading] = useState(true);
     const [isExploding, setIsExploding] = useState(false);
+    // The bonus state is managed by the bonusReducer.
     const [
         {
             bonusTiles,
@@ -297,26 +36,34 @@ const App = () => {
         dispatch,
     ] = useReducer(bonusReducer, initialState);
 
+    // --- REFS ---
     const inputRef = useRef(null);
     const wordListRef = useRef(null);
+    // A ref to hold the current foundWords array, to avoid stale closures in the game timer.
     const foundWordsRef = useRef(foundWords);
     useEffect(() => {
         foundWordsRef.current = foundWords;
     }, [foundWords]);
 
+    // --- BOARD AND WORD LOGIC ---
+
+    // Generates the game board by shuffling the dice and selecting a random face from each.
     const generateBoard = useCallback(() => {
         const rand = seedrandom(seed);
         const shuffledDice = [...DICE];
+        // Shuffle the dice array.
         for (let i = shuffledDice.length - 1; i > 0; i--) {
             const j = Math.floor(rand() * (i + 1));
             [shuffledDice[i], shuffledDice[j]] = [shuffledDice[j], shuffledDice[i]];
         }
+        // Select one random face from each die.
         const selectedLetters = shuffledDice.map(
             (die) => die.faces[Math.floor(rand() * 6)]
         );
         setBoard(selectedLetters);
 
-        let dw = -1,
+        // Randomly place the Double Word (DW) and Double Letter (DL) bonus tiles.
+        let dw = -1, 
             dl = -1;
         while (dw === dl) {
             dw = Math.floor(rand() * (BOARD_SIZE * BOARD_SIZE));
@@ -326,25 +73,30 @@ const App = () => {
         dispatch({ type: 'BOARD_GENERATED', payload: { dw, dl } });
     }, [seed]);
 
+    // Generate the board when the component mounts.
     useEffect(() => {
         generateBoard();
     }, [generateBoard]);
 
+    // Finds all possible valid words on the board.
     const findAllPossibleWords = useCallback(() => {
         const found = new Map();
         if (board.length === 0 || wordSet.size === 0) return;
 
+        // Recursive function to find words starting from a given path.
         const findWords = (path, currentWord) => {
             const lastIndex = path[path.length - 1];
             const letter = board[lastIndex].toUpperCase();
             currentWord += letter;
 
+            // If the current word is valid and long enough, add it to the map.
             if (currentWord.length >= 3 && wordSet.has(currentWord)) {
                 if (!found.has(currentWord)) {
                     found.set(currentWord, path);
                 }
             }
 
+            // Explore neighbors to find longer words.
             const neighbors = getNeighbors(lastIndex);
             for (const neighbor of neighbors) {
                 if (!path.includes(neighbor)) {
@@ -353,12 +105,14 @@ const App = () => {
             }
         };
 
+        // Start a search from every tile on the board.
         for (let i = 0; i < board.length; i++) {
             findWords([i], "");
         }
         setAllPossibleWords(found);
     }, [board, wordSet]);
 
+    // Fetches the word list when the component mounts.
     useEffect(() => {
         fetch("/words.txt")
             .then((response) => response.text())
@@ -370,6 +124,7 @@ const App = () => {
             });
     }, []);
 
+    // Finds all possible words once the board and word list are ready.
     useEffect(() => {
         if (board.length > 0 && wordSet.size > 0) {
             setIsLoading(true);
@@ -380,6 +135,9 @@ const App = () => {
         }
     }, [board, wordSet, findAllPossibleWords]);
 
+    // --- GAME LIFECYCLE ---
+
+    // Main game timer loop.
     useEffect(() => {
         if (!gameStarted || gameOver) {
             return;
@@ -392,6 +150,7 @@ const App = () => {
                     setGameOver(true);
                 }
 
+                // Dispatch a TICK action to the bonus reducer on every second.
                 dispatch({
                     type: 'TICK',
                     payload: {
@@ -410,18 +169,23 @@ const App = () => {
         return () => clearInterval(timer);
     }, [gameStarted, gameOver, allPossibleWords, seed, isDebug, dispatch]);
 
+    // Effect to end the game when the timer runs out.
     useEffect(() => {
         if (timeLeft === 0 && gameStarted && !gameOver) {
             setGameOver(true);
         }
     }, [timeLeft, gameStarted, gameOver]);
 
+    // Focus the input field when the game starts.
     useEffect(() => {
         if (gameStarted) {
             inputRef.current.focus();
         }
     }, [gameStarted]);
 
+    // --- UI AND EVENT HANDLERS ---
+
+    // Auto-scroll the word list.
     useEffect(() => {
         if (wordListRef.current) {
             if (activeTab === "found") {
@@ -432,6 +196,7 @@ const App = () => {
         }
     }, [foundWords, activeTab]);
 
+    // Show a toast message for the last found word.
     useEffect(() => {
         if (lastFoundWord) {
             const timer = setTimeout(() => {
@@ -441,6 +206,7 @@ const App = () => {
         }
     }, [lastFoundWord]);
 
+    // Debug logging for Harlequin state changes.
     useEffect(() => {
         if (isDebug && harlequin.isActive) {
             console.log("Harlequin state is now ACTIVE in component:", harlequin);
@@ -457,6 +223,7 @@ const App = () => {
         setActiveTab(tab);
     };
 
+    // Helper function to get the 8 neighbors of a tile.
     const getNeighbors = (index) => {
         const neighbors = [];
         const x = index % BOARD_SIZE;
@@ -475,7 +242,9 @@ const App = () => {
         return neighbors;
     };
 
+    // Checks if a word is valid on the Boggle board and returns its path if so.
     const isValidBoggleWord = (word) => {
+        // Recursive search function to find the word path.
         const search = (currentWord, index, visited) => {
             const tileLetter = board[index].toUpperCase();
             if (!currentWord.startsWith(tileLetter)) {
@@ -500,6 +269,7 @@ const App = () => {
             return null;
         };
 
+        // Start a search from every tile on the board.
         for (let i = 0; i < board.length; i++) {
             const path = search(word, i, new Set());
             if (path) {
@@ -509,34 +279,58 @@ const App = () => {
         return null;
     };
 
+    // Calculates the point value of a word, including any bonuses.
     const calculatePoints = (word, path) => {
         if (word.length <= 2) return 0;
-        let points = word.length - 3;
-        let multiplier = 1;
 
+        // 1. Get base points from word length (Boggle standard scoring)
+        let points;
+        const len = word.length;
+        if (len <= 4) { // 3 or 4 letters
+            points = 1;
+        } else if (len === 5) {
+            points = 2;
+        } else if (len === 6) {
+            points = 3;
+        } else if (len === 7) {
+            points = 5;
+        } else { // 8+ letters
+            points = 11;
+        }
+
+        let wordMultiplier = 1;
+
+        // 2. Check for tile bonuses
+        for (const tile of bonusTiles) {
+            if (path.includes(tile.index)) {
+                if (tile.type === "DL") {
+                    points += 1; // Double Letter adds 1 point
+                } else if (tile.type === "DW") {
+                    wordMultiplier *= 2;
+                } else if (tile.type === "TW") {
+                    wordMultiplier *= 3;
+                } else if (tile.type === "ST" && !tile.used) {
+                    wordMultiplier *= 10;
+                }
+            }
+        }
+
+        // 3. Apply word multipliers
+        points *= wordMultiplier;
+
+        // 4. Check for Harlequin bonus
         if (harlequin.isActive && word === harlequin.word) {
             points += 50; // Harlequin bonus
             dispatch({ type: 'HARLEQUIN_SUCCESS' });
         }
 
-        for (const tile of bonusTiles) {
-            if (path.includes(tile.index)) {
-                if (tile.type === "DL") {
-                    points += 1;
-                } else if (tile.type === "DW") {
-                    multiplier *= 2;
-                } else if (tile.type === "TW") {
-                    multiplier *= 3;
-                } else if (tile.type === "ST" && !tile.used) {
-                    multiplier *= 10;
-                }
-            }
-        }
-        return points * multiplier;
+        return points;
     };
 
+    // Checks a word submitted by the player.
     const checkWord = (word) => {
         const upperCaseWord = word.toUpperCase();
+        // Basic word validation.
         if (
             upperCaseWord.length >= 3 &&
             !foundWords.some((item) => item.word === upperCaseWord) &&
@@ -544,10 +338,12 @@ const App = () => {
         ) {
             const path = isValidBoggleWord(upperCaseWord);
             if (path) {
+                // If the word is valid, calculate points and add it to the found words list.
                 const points = calculatePoints(upperCaseWord, path);
                 setFoundWords((prev) => [...prev, { word: upperCaseWord, points }]);
                 setLastFoundWord({ word: upperCaseWord, points });
 
+                // Check if a silver tile was used.
                 const silverTile = bonusTiles.find((t) => t.type === "ST" && !t.used);
                 if (silverTile && path.includes(silverTile.index)) {
                     setIsExploding(true);
@@ -567,6 +363,8 @@ const App = () => {
             setInputValue("");
         }
     };
+
+    // --- MOUSE/TOUCH DRAG SELECTION ---
 
     const handleMouseDown = (index) => {
         if (!gameStarted || gameOver) return;
@@ -628,6 +426,8 @@ const App = () => {
         handleMouseUp();
     };
 
+    // --- UTILITY AND FORMATTING ---
+
     const handleShare = () => {
         if (navigator.share) {
             const text = `I got ${totalScore} points on Nomoggle #${seed}. https://noggle.complicity.co?seed=${seed}`;
@@ -653,6 +453,8 @@ const App = () => {
         return "";
     };
 
+    // --- RENDER LOGIC ---
+
     const foundWordsSet = new Set(foundWords.map((item) => item.word));
     const sortedAllWords = [...allPossibleWords.keys()].sort((a, b) => {
         const pathA = allPossibleWords.get(a);
@@ -661,6 +463,7 @@ const App = () => {
     });
     const totalScore = foundWords.reduce((sum, { points }) => sum + points, 0);
 
+    // Determine the current bonus message to display.
     let bonusMessage = '';
     const activeTimedTile = bonusTiles.find(t => t.type === 'TW' || (t.type === 'ST' && !t.used));
     if (harlequin.isActive) {
@@ -678,9 +481,12 @@ const App = () => {
             <div className="game-area">
                 <h1>Nomoggle - {date ? date : `#${seed}`}</h1>
                 <div className="bonus-message">{bonusMessage}</div>
-                <h2 className={`timer ${timeLeft <= 10 ? "urgent" : ""}`}>
-                    {formatTime(timeLeft)}
-                </h2>
+                <div className="game-stats">
+                    <h2 className={`timer ${timeLeft <= 10 ? "urgent" : ""}`}>
+                        {formatTime(timeLeft)}
+                    </h2>
+                    <h2 className="score">Score: {totalScore}</h2>
+                </div>
                 {lastFoundWord && (
                     <div className="word-toast">
                         {lastFoundWord.word} {formatPoints(lastFoundWord.points)}
