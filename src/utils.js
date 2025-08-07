@@ -6,6 +6,7 @@ export const BOARD_SIZE = 4;
 export const TRIPLE_WORD_DURATION = 15;
 export const SILVER_TILE_DURATION = 15;
 export const HARLEQUIN_DURATION = 15;
+export const SEED_OFFSET = 418;
 
 export const DICE = [
     { faces: ["A", "A", "E", "E", "G", "N"] },
@@ -42,7 +43,7 @@ export const getSeed = () => {
         const year = today.getFullYear();
         const month = today.getMonth() + 1;
         const day = today.getDate();
-        seed = year * 10000 + month * 100 + day;
+        seed = year * 10000 + month * 100 + day + SEED_OFFSET;
 
         const monthNames = [
             "January",
