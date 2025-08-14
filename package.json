@@ -9,17 +9,20 @@
     "test": "react-scripts test"
   },
   "dependencies": {
+    "@statelyai/inspect": "^0.4.0",
+    "@xstate/react": "^6.0.0",
     "ordinal": "^1.0.3",
     "react": "^17.0.2",
     "react-confetti-explosion": "^3.0.3",
     "react-dom": "^17.0.2",
-    "seedrandom": "^3.0.5"
+    "seedrandom": "^3.0.5",
+    "xstate": "^5.20.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^5.16.2",
     "@testing-library/react": "^12.1.2",
     "@testing-library/user-event": "^13.5.0",
-    "react-scripts": "^4.0.3"
+    "react-scripts": "^5.0.1"
   },
   "keywords": [],
   "author": "",
