@@ -428,10 +428,12 @@ h1 {
   border: 1px solid #ccc;
   background-color: #f0f0f0;
   text-align: center;
+  color: #aaa;
 }
 
 .tab.active {
-  background-color: #ddd;
+  background-color: white;
+  color: black;
 }
 
 .tab:disabled {

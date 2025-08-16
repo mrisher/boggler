@@ -311,9 +311,7 @@ const App = () => {
                                     }
 
                                     if (isHarlequin) {
-                                        classes.push(
-                                            "harlequin-tile"
-                                        );
+                                        classes.push("harlequin-tile");
                                         if (harlequin.isActive) {
                                             classes.push("lit");
                                         }
@@ -474,7 +472,7 @@ const App = () => {
                                         className="share-button"
                                         onClick={handleShare}
                                     >
-                                        Share Score
+                                        Share
                                     </button>
                                 </>
                             )}
@@ -576,7 +574,7 @@ const App = () => {
                                 }`}
                                 onClick={() => setModalActiveTab("all")}
                             >
-                                All Words ({allPossibleWords.size})
+                                {allPossibleWords.size} Words
                             </button>
                         </div>
                         {modalActiveTab === "found" && (
