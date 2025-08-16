@@ -289,7 +289,7 @@ const App = () => {
                         >
                             <div
                                 className={`board ${
-                                    !gameStarted ? "blurred" : ""
+                                    state.matches("ready") ? "blurred" : ""
                                 }`}
                             >
                                 {board.map((letter, index) => {
@@ -309,8 +309,7 @@ const App = () => {
 
                                     if (isHarlequin) {
                                         classes.push(
-                                            "harlequin-tile",
-                                            `harlequin-${harlequinTile.type}`
+                                            "harlequin-tile"
                                         );
                                         if (harlequin.isActive) {
                                             classes.push("lit");

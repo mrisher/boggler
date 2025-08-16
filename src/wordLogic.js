@@ -86,7 +86,7 @@ export const calculatePoints = (word, path, bonusTiles, harlequin) => {
                 wordMultiplier *= 2;
             } else if (tile.type === "TW") {
                 wordMultiplier *= 3;
-            } else if (tile.type === "ST" && !tile.used) {
+            } else if (tile.type === "ST") {
                 wordMultiplier *= 10;
             }
         }

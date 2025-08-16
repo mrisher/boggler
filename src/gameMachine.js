@@ -236,15 +236,28 @@ export const gameMachine = createMachine(
                         },
                     };
                 }),
-                invoke: {
-                    id: "game-timer",
-                    src: fromCallback(({ sendBack }) => {
-                        const interval = setInterval(() => {
-                            sendBack({ type: "TICK" });
-                        }, 1000);
-                        return () => clearInterval(interval);
-                    }),
-                },
+                invoke: [
+                    {
+                        id: "game-timer-normal",
+                        src: fromCallback(({ sendBack }) => {
+                            const interval = setInterval(() => {
+                                sendBack({ type: "TICK" });
+                            }, 1000);
+                            return () => clearInterval(interval);
+                        }),
+                        guard: ({ context }) => !context.isDebug,
+                    },
+                    {
+                        id: "game-timer-debug",
+                        src: fromCallback(({ sendBack }) => {
+                            const interval = setInterval(() => {
+                                sendBack({ type: "TICK" });
+                            }, 100);
+                            return () => clearInterval(interval);
+                        }),
+                        guard: ({ context }) => context.isDebug,
+                    },
+                ],
                 on: {
                     TICK: [
                         {
@@ -252,11 +265,173 @@ export const gameMachine = createMachine(
                             guard: ({ context }) => context.timeLeft <= 1,
                         },
                         {
-                            actions: assign({
-                                timeLeft: ({ context }) => context.timeLeft - 1,
-                            }),
+                            actions: [
+                                assign({
+                                    timeLeft: ({ context }) =>
+                                        context.timeLeft - 1,
+                                }),
+                                raise({ type: "UPDATE_TIMED_TILES" }),
+                            ],
                         },
                     ],
+                    UPDATE_TIMED_TILES: {
+                        actions: [
+                            assign(({ context }) => {
+                                const {
+                                    timeLeft,
+                                    tripleWordStartTime,
+                                    silverTileStartTime,
+                                    harlequin,
+                                    timedTileHistory,
+                                    board,
+                                    allPossibleWords,
+                                } = context;
+                                let newBonusTiles = [...context.bonusTiles];
+                                let newHarlequin = { ...harlequin };
+
+                                // --- Tile Activation ---
+                                if (timeLeft === tripleWordStartTime) {
+                                    const occupiedIndices = newBonusTiles.map(
+                                        (t) => t.index
+                                    );
+                                    const rand = seedrandom(timeLeft);
+                                    const index = findValidBonusTileIndex(
+                                        allPossibleWords,
+                                        context.foundWords,
+                                        rand,
+                                        occupiedIndices,
+                                        timedTileHistory
+                                    );
+                                    if (index !== -1) {
+                                        newBonusTiles.push({
+                                            type: "TW",
+                                            index,
+                                            timer: TRIPLE_WORD_DURATION,
+                                        });
+                                        timedTileHistory.add(index);
+                                    }
+                                }
+
+                                if (timeLeft === silverTileStartTime) {
+                                    const occupiedIndices = newBonusTiles.map(
+                                        (t) => t.index
+                                    );
+                                    const rand = seedrandom(timeLeft);
+                                    const index = findValidBonusTileIndex(
+                                        allPossibleWords,
+                                        context.foundWords,
+                                        rand,
+                                        occupiedIndices,
+                                        timedTileHistory
+                                    );
+                                    if (index !== -1) {
+                                        newBonusTiles.push({
+                                            type: "ST",
+                                            index,
+                                            timer: SILVER_TILE_DURATION,
+                                            used: false,
+                                        });
+                                        timedTileHistory.add(index);
+                                    }
+                                }
+
+                                if (
+                                    context.isDebug &&
+                                    timeLeft === harlequin.startTime
+                                ) {
+                                    console.log(
+                                        `[Harlequin Check] Time: ${timeLeft}. Attempting to activate.`
+                                    );
+                                    console.log(
+                                        `[Harlequin Check] hasAppeared: ${harlequin.hasAppeared}`
+                                    );
+                                }
+
+                                if (
+                                    timeLeft === harlequin.startTime &&
+                                    !harlequin.hasAppeared
+                                ) {
+                                    if (context.isDebug)
+                                        console.log(
+                                            "[Harlequin Check] Conditions met. Searching for long word."
+                                        );
+                                    const longWords = Array.from(
+                                        allPossibleWords.keys()
+                                    )
+                                        .filter((w) => w.length >= 6)
+                                        .sort((a, b) => b.length - a.length);
+
+                                    if (context.isDebug)
+                                        console.log(
+                                            `[Harlequin Check] Found ${longWords.length} words with length >= 7.`
+                                        );
+
+                                    if (longWords.length > 0) {
+                                        const word = longWords[0];
+                                        const path = allPossibleWords.get(word);
+                                        if (path && path.length >= 2) {
+                                            if (context.isDebug)
+                                                console.log(
+                                                    `[Harlequin Check] Activating with word: ${word}`
+                                                );
+                                            newHarlequin = {
+                                                ...newHarlequin,
+                                                word: word,
+                                                positions: [
+                                                    {
+                                                        index: path[0],
+                                                        type: "harlequin-1",
+                                                    },
+                                                    {
+                                                        index: path[
+                                                            path.length - 1
+                                                        ],
+                                                        type: "harlequin-2",
+                                                    },
+                                                ],
+                                                isActive: true,
+                                                timer: HARLEQUIN_DURATION,
+                                                hasAppeared: true,
+                                            };
+                                        }
+                                    } else {
+                                        if (context.isDebug)
+                                            console.log(
+                                                "[Harlequin Check] No long words found. Harlequin will not appear."
+                                            );
+                                    }
+                                }
+
+                                // --- Timer Decrementation ---
+                                newBonusTiles = newBonusTiles
+                                    .map((tile) => {
+                                        if (tile.timer > 0) {
+                                            return {
+                                                ...tile,
+                                                timer: tile.timer - 1,
+                                            };
+                                        }
+                                        return tile;
+                                    })
+                                    .filter((tile) => tile.timer !== 0);
+
+                                if (newHarlequin.isActive) {
+                                    if (newHarlequin.timer > 1) {
+                                        newHarlequin.timer--;
+                                    } else {
+                                        newHarlequin.isActive = false;
+                                        newHarlequin.word = null;
+                                        newHarlequin.positions = [];
+                                    }
+                                }
+
+                                return {
+                                    bonusTiles: newBonusTiles,
+                                    harlequin: newHarlequin,
+                                };
+                            }),
+                        ],
+                    },
                     CHECK_WORD: {
                         actions: [
                             assign(({ context, event }) => {
@@ -362,6 +537,7 @@ export const gameMachine = createMachine(
             },
             gameOver: {
                 type: "final",
+                entry: assign({ timeLeft: 0 }),
             },
         },
     },
