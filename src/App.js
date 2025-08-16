@@ -36,8 +36,15 @@ const App = () => {
     const [modalActiveTab, setModalActiveTab] = useState("found");
     const [isExploding, setIsExploding] = useState(false);
     const [toastWord, setToastWord] = useState(null);
+    const [isButtonDisabled, setIsButtonDisabled] = useState(false);
 
     // --- UI AND EVENT HANDLERS ---
+
+    useEffect(() => {
+        if (state.matches("ready")) {
+            setIsButtonDisabled(false);
+        }
+    }, [state]);
 
     // Show a toast message for the last found word.
     useEffect(() => {
@@ -55,7 +62,11 @@ const App = () => {
     };
 
     const handleNewGame = () => {
-        send({ type: "NEW_GAME" });
+        console.log("Disabling New Game button");
+        setIsButtonDisabled(true);
+        setTimeout(() => {
+            send({ type: "NEW_GAME" });
+        }, 0);
     };
 
     const checkWord = (word) => {
@@ -409,7 +420,7 @@ const App = () => {
                                     <button
                                         className="new-game-button"
                                         onClick={handleNewGame}
-                                        disabled={isLoading || state.matches("setup")}
+                                        disabled={isButtonDisabled}
                                     >
                                         New Game
                                     </button>

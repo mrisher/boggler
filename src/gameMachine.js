@@ -393,7 +393,7 @@ export const gameMachine = createMachine(
 
                                     if (context.isDebug)
                                         console.log(
-                                            `[Harlequin Check] Found ${longWords.length} words with length >= 7.`
+                                            `[Harlequin Check] Found ${longWords.length} words with length >= 6.`
                                         );
 
                                     if (longWords.length > 0) {
