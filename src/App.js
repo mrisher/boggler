@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { createBrowserInspector } from "@statelyai/inspect";
+// import { createBrowserInspector } from "@statelyai/inspect";
 import { useMachine } from "@xstate/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import "./App.css";
@@ -7,10 +7,10 @@ import { gameMachine } from "./gameMachine";
 import { BOARD_SIZE } from "./utils";
 import { calculatePoints } from "./wordLogic";
 
-const inspector = createBrowserInspector();
+// const inspector = createBrowserInspector();
 
 const App = () => {
-    const [state, send] = useMachine(gameMachine, { inspector });
+    const [state, send] = useMachine(gameMachine);
 
     const {
         seed,

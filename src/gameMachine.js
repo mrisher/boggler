@@ -181,15 +181,51 @@ export const gameMachine = createMachine(
             },
             setup: {
                 entry: assign(({ context }) => {
-                    const { board, bonusTiles } = generateBoard(context);
-                    const allPossibleWords = findAllPossibleWords({
-                        ...context,
-                        board,
-                    });
+                    if (context.seed === "debug") {
+                        const { board, bonusTiles } = generateBoard(context);
+                        const allPossibleWords = findAllPossibleWords({
+                            ...context,
+                            board,
+                        });
+                        return {
+                            board,
+                            bonusTiles,
+                            allPossibleWords,
+                            timedTileHistory: new Set(),
+                        };
+                    }
+
+                    let board, bonusTiles, allPossibleWords;
+                    let seed = context.seed;
+                    const MAX_ATTEMPTS = 100;
+                    const MIN_WORDS = 60;
+
+                    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+                        const currentSeed = seed + i;
+                        const newContext = { ...context, seed: currentSeed };
+                        ({ board, bonusTiles } = generateBoard(newContext));
+                        allPossibleWords = findAllPossibleWords({
+                            ...newContext,
+                            board,
+                        });
+
+                        if (allPossibleWords.size >= MIN_WORDS) {
+                            seed = currentSeed;
+                            break;
+                        }
+
+                        if (i === MAX_ATTEMPTS - 1) {
+                            console.error(
+                                `Failed to generate a board with at least ${MIN_WORDS} words after ${MAX_ATTEMPTS} attempts.`
+                            );
+                        }
+                    }
+
                     return {
                         board,
                         bonusTiles,
                         allPossibleWords,
+                        seed,
                         timedTileHistory: new Set(),
                     };
                 }),
@@ -210,7 +246,7 @@ export const gameMachine = createMachine(
                         stStartTime = hqStartTime + HARLEQUIN_DURATION + 1;
                         twStartTime = stStartTime + SILVER_TILE_DURATION + 1;
                     } else {
-                        const rand = seedrandom(seed + 1);
+                        const rand = seedrandom(seed + 2);
                         const gameDuration = getTime();
                         twStartTime =
                             Math.floor(rand() * (gameDuration / 2)) +
