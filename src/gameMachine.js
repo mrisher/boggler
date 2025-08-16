@@ -566,8 +566,38 @@ export const gameMachine = createMachine(
                 },
             },
             gameOver: {
-                type: "final",
                 entry: assign({ timeLeft: 0 }),
+                on: {
+                    NEW_GAME: {
+                        target: "setup",
+                        actions: assign({
+                            seed: ({ context }) => {
+                                const currentSeed = parseFloat(context.seed);
+                                if (!isNaN(currentSeed)) {
+                                    // round to one decimal place to avoid floating point issues
+                                    return (
+                                        Math.round((currentSeed + 0.1) * 10) /
+                                        10
+                                    );
+                                }
+                                return context.seed;
+                            },
+                            date: null,
+                            foundWords: [],
+                            timeLeft: getTime(),
+                            bonusTiles: [],
+                            harlequin: {
+                                word: null,
+                                positions: [],
+                                isActive: false,
+                                timer: 0,
+                                startTime: 0,
+                                hasAppeared: false,
+                            },
+                            lastFoundWord: null,
+                        }),
+                    },
+                },
             },
         },
     },

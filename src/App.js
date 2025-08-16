@@ -25,14 +25,11 @@ const App = () => {
         lastFoundWord,
     } = state.context;
 
-    const gameStarted = state.matches("playing");
     const gameOver = state.matches("gameOver");
     const isLoading = state.matches("loading");
     const isError = state.matches("loadingError");
 
     // --- UI STATE MANAGEMENT ---
-    const [inputValue, setInputValue] = useState("");
-    const [activeTab, setActiveTab] = useState("found");
     const [selection, setSelection] = useState([]);
     const [isSelecting, setIsSelecting] = useState(false);
     const [showAllWordsModal, setShowAllWordsModal] = useState(false);
@@ -40,32 +37,7 @@ const App = () => {
     const [isExploding, setIsExploding] = useState(false);
     const [toastWord, setToastWord] = useState(null);
 
-    // --- REFS ---
-    const inputRef = useRef(null);
-    const wordListRef = useRef(null);
-
-    // --- GAME LIFECYCLE ---
-
-    // Focus the input field when the game starts.
-    useEffect(() => {
-        if (gameStarted) {
-            inputRef.current.focus();
-        }
-    }, [gameStarted]);
-
     // --- UI AND EVENT HANDLERS ---
-
-    // Auto-scroll the word list.
-    useEffect(() => {
-        if (wordListRef.current) {
-            if (activeTab === "found") {
-                wordListRef.current.scrollTop =
-                    wordListRef.current.scrollHeight;
-            } else {
-                wordListRef.current.scrollTop = 0;
-            }
-        }
-    }, [foundWords, activeTab]);
 
     // Show a toast message for the last found word.
     useEffect(() => {
@@ -82,31 +54,21 @@ const App = () => {
         send({ type: "START_GAME" });
     };
 
-    const handleTabClick = (tab) => {
-        setActiveTab(tab);
+    const handleNewGame = () => {
+        send({ type: "NEW_GAME" });
     };
 
     const checkWord = (word) => {
         send({ type: "CHECK_WORD", word });
     };
 
-    const handleInputChange = (e) => {
-        setInputValue(e.target.value);
-    };
-
-    const handleKeyPress = (e) => {
-        if (e.key === "Enter") {
-            checkWord(inputValue);
-            setInputValue("");
-        }
-    };
-
     // --- MOUSE/TOUCH DRAG SELECTION ---
 
     const handleMouseDown = (index) => {
-        if (!gameStarted || gameOver) return;
-        setIsSelecting(true);
-        setSelection([index]);
+        if (state.matches("playing")) {
+            setIsSelecting(true);
+            setSelection([index]);
+        }
     };
 
     const getNeighbors = (index) => {
@@ -234,12 +196,12 @@ const App = () => {
             (t) => t.type === "TW" || (t.type === "ST" && !t.used)
         );
         if (harlequin.isActive) {
-            bonusMessage = `Lengthy Challenge: Find a word connecting the two tiles! (${harlequin.timer}s)`;
+            bonusMessage = `Find word connecting the two tiles (${harlequin.timer}s)`;
         } else if (activeTimedTile) {
             if (activeTimedTile.type === "TW") {
-                bonusMessage = `Triple Word Score Active (${activeTimedTile.timer}s)`;
+                bonusMessage = `Triple Word Score (${activeTimedTile.timer}s)`;
             } else if (activeTimedTile.type === "ST") {
-                bonusMessage = `10x Silver Tile Active (${activeTimedTile.timer}s)`;
+                bonusMessage = `10x Silver Tile (${activeTimedTile.timer}s)`;
             }
         }
     }
@@ -440,26 +402,17 @@ const App = () => {
                                 </div>
                             )}
                         </div>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            className="word-input"
-                            value={inputValue}
-                            onChange={handleInputChange}
-                            onKeyPress={handleKeyPress}
-                            disabled={!gameStarted || gameOver}
-                            placeholder={
-                                !gameStarted
-                                    ? "Click start to play"
-                                    : gameOver
-                                    ? "Game Over"
-                                    : "Enter word..."
-                            }
-                        />
 
                         <div className="mobile-button-container">
                             {gameOver && (
                                 <>
+                                    <button
+                                        className="new-game-button"
+                                        onClick={handleNewGame}
+                                        disabled={isLoading || state.matches("setup")}
+                                    >
+                                        New Game
+                                    </button>
                                     <button
                                         className="view-words-button"
                                         onClick={() =>
@@ -477,66 +430,6 @@ const App = () => {
                                 </>
                             )}
                         </div>
-                    </div>
-                    <div className="sidebar">
-                        <div className="tab-container">
-                            <button
-                                className={`tab ${
-                                    activeTab === "found" ? "active" : ""
-                                }`}
-                                onClick={() => handleTabClick("found")}
-                            >
-                                Found Words ({foundWords.length})
-                            </button>
-                            <button
-                                className={`tab ${
-                                    activeTab === "all" ? "active" : ""
-                                }`}
-                                onClick={() => handleTabClick("all")}
-                                disabled={!gameOver}
-                            >
-                                All Words ({allPossibleWords.size})
-                            </button>
-                        </div>
-                        <div className="word-list-container" ref={wordListRef}>
-                            <ul className="word-list">
-                                {activeTab === "found" &&
-                                    foundWords.map(({ word, points }) => (
-                                        <li key={word}>
-                                            {word} {formatPoints(points)}
-                                        </li>
-                                    ))}
-                                {activeTab === "all" &&
-                                    sortedAllWords.map((word) => (
-                                        <li
-                                            key={word}
-                                            className={
-                                                foundWordsSet.has(word)
-                                                    ? "found-in-all"
-                                                    : "missed"
-                                            }
-                                        >
-                                            {word}{" "}
-                                            {formatPoints(
-                                                calculatePoints(
-                                                    word,
-                                                    allPossibleWords.get(word),
-                                                    bonusTiles,
-                                                    harlequin
-                                                )
-                                            )}
-                                        </li>
-                                    ))}
-                            </ul>
-                        </div>
-                        {activeTab === "found" && !gameOver && (
-                            <button
-                                className="share-button"
-                                onClick={handleShare}
-                            >
-                                Share Score
-                            </button>
-                        )}
                     </div>
                 </>
             )}
