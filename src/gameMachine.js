@@ -103,6 +103,15 @@ const findAllPossibleWords = (context) => {
     return found;
 };
 
+const timerActor = fromCallback(({ sendBack, input }) => {
+    const interval = setInterval(() => {
+        sendBack({ type: "TICK" });
+    }, input.interval);
+    return () => {
+        clearInterval(interval);
+    };
+});
+
 export const gameMachine = createMachine(
     {
         id: "boggler",
@@ -272,28 +281,13 @@ export const gameMachine = createMachine(
                         },
                     };
                 }),
-                invoke: [
-                    {
-                        id: "game-timer-normal",
-                        src: fromCallback(({ sendBack }) => {
-                            const interval = setInterval(() => {
-                                sendBack({ type: "TICK" });
-                            }, 1000);
-                            return () => clearInterval(interval);
-                        }),
-                        guard: ({ context }) => !context.isDebug,
-                    },
-                    {
-                        id: "game-timer-debug",
-                        src: fromCallback(({ sendBack }) => {
-                            const interval = setInterval(() => {
-                                sendBack({ type: "TICK" });
-                            }, 100);
-                            return () => clearInterval(interval);
-                        }),
-                        guard: ({ context }) => context.isDebug,
-                    },
-                ],
+                invoke: {
+                    id: "game-timer",
+                    src: timerActor,
+                    input: ({ context }) => ({
+                        interval: context.isDebug ? 100 : 1000,
+                    }),
+                },
                 on: {
                     TICK: [
                         {
