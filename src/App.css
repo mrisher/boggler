@@ -21,6 +21,7 @@ body {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  touch-action: none;
 }
 
 .game-area {
@@ -185,38 +186,22 @@ h1 {
     overflow: hidden;
 }
 
-.tile.harlequin-1 .tile-content, .tile.harlequin-2 .tile-content {
-    color: white; /* Base color for the left side */
-}
-
-.tile.harlequin-1 .tile-content {
-    background: linear-gradient(to right, black 50%, white 50%);
-}
-
-.tile.harlequin-2 .tile-content {
-    background: linear-gradient(to right, white 50%, black 50%);
-}
-
-.tile.harlequin-1 .tile-content::before, .tile.harlequin-2 .tile-content::before {
-    content: attr(data-letter);
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+.tile.harlequin-tile .tile-content {
+    background: linear-gradient(135deg, #8a2be2, #4a00e0);
+    color: white;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    line-height: 1;
 }
 
-.tile.harlequin-1 .tile-content::before {
-    color: black; /* Color for the right side */
-    clip-path: inset(0 0 0 50%);
+.harlequin-letter {
+    font-size: 1em;
 }
 
-.tile.harlequin-2 .tile-content::before {
-    color: white; /* Color for the right side */
-    clip-path: inset(0 0 0 50%);
+.harlequin-arrow {
+    font-size: 0.5em;
 }
 
 .tile.harlequin-tile.lit .tile-content {
