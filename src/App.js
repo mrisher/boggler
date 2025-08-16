@@ -303,6 +303,9 @@ const App = () => {
                                     const isHarlequin = !!harlequinTile;
 
                                     const classes = ["tile"];
+                                    if (state.matches("ready")) {
+                                        classes.push("shaking");
+                                    }
                                     if (selection.includes(index)) {
                                         classes.push("selected");
                                     }
