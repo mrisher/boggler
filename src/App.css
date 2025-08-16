@@ -187,20 +187,21 @@ h1 {
 }
 
 .tile.harlequin-tile .tile-content {
-    background: linear-gradient(to right, black 50%, white 50%);
-    color: black; /* Set text color to black for the right side */
-}
-
-.tile.harlequin-tile .tile-content::before {
-    content: attr(data-letter);
-    position: absolute;
-    color: white; /* Set text color to white for the left side */
-    clip-path: inset(0 50% 0 0);
+    background: linear-gradient(135deg, #8a2be2, #4a00e0);
+    color: white;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    width: 100%;
-    height: 100%;
+    line-height: 1;
+}
+
+.harlequin-letter {
+    font-size: 1em;
+}
+
+.harlequin-arrow {
+    font-size: 0.5em;
 }
 
 .tile.harlequin-tile.lit .tile-content {

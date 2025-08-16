@@ -398,7 +398,21 @@ const App = () => {
                                                         />
                                                     )}
                                                 {chip}
-                                                {letter}
+                                                {isHarlequin ? (
+                                                    <>
+                                                        <div className="harlequin-letter">
+                                                            {letter}
+                                                        </div>
+                                                        <div className="harlequin-arrow">
+                                                            {harlequinTile.type ===
+                                                            "harlequin-1"
+                                                                ? "→"
+                                                                : "←"}
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    letter
+                                                )}
                                                 <div
                                                     className="drag-target"
                                                     onMouseDown={() =>
